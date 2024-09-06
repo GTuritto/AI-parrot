@@ -1,6 +1,6 @@
 # AI-parrot: Automating AI News Podcast Creation with LangGraph
 
-AI-parrot is a demo project that leverages LangGraph's power to automate the generation of a podcast from the latest AI news. From fetching and ranking news articles to generating a professional podcast script and converting it to audio, AI-parrot handles it all using intelligent agents. This project highlights LangGraph's flexibility and capabilities in building sophisticated agent-based workflows.
+AI-parrot is a demo project that leverages LangGraph's power to automate podcast generation using the latest AI news. AI-parrot handles it all using intelligent agents, from fetching and ranking news articles to generating a professional podcast script and converting it to audio. This project highlights LangGraph's flexibility and capabilities in building sophisticated agent-based workflows.
 
 ## Key Features
 - **Automated News Fetching:** Fetches the latest AI news from trusted sources and selects relevant articles.
@@ -19,6 +19,7 @@ AI-parrot is far from finished! As the project grows, expect to see:
 - **Advanced ranking models:** Incorporating more sophisticated ranking algorithms to improve relevance scoring.
 - **Dynamic script generation:** Adding the ability to tweak podcast scripts based on audience preferences.
 - **More customization options:** Allowing users to modify the podcast tone and style with even more granularity.
+- **Support for MultiLLM:** Why only use one LLM instead of the right one for the task.
 - **Integration with Workflow Platforms:** Integrating with platforms like Zapier can allow us to schedule and automate the publishing.
 
 Stay tuned, as AI-parrot will continue to evolve!
@@ -41,6 +42,9 @@ pip install -r requirements.txt
 MISTRAL_API_KEY=<your-mistral-api-key>
 NEWS_API_KEY=<your-news-api-key>
 ```
+You can obtain the API key for Mistral at <https://console.mistral.ai/api-keys/>. So, as you know, you will need a Mistral.ai account.
+For the News API key, you will need to request one at <https://newsapi.org/>
+
 4. ### Run the project:
 ```bash
 python main.py
