@@ -49,7 +49,7 @@ Add these to your `.env` file in the project root.
 1. Clone the repository:
    ```bash
    git clone <repository-url>
-   cd Mujica
+   cd AI-parrot
    ```
 
 2. Set up the environment (automatic with the script):
@@ -204,7 +204,7 @@ This project is licensed under the [MIT License](LICENSE).
 ## Project Structure
 
 ```text
-mujica/
+AI-parrot/
 ├── .venv/                      # Virtual environment
 ├── pyproject.toml              # Project configuration
 ├── README.md                   # This file
