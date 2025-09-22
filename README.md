@@ -1,11 +1,18 @@
-# AI Podcast Generator
+# 🤖 AI-Parrot Podcast Generator - Educational Edition
 
-An AI-powered system that automatically generates podcast episodes from recent news articles using multiple LLMs for different tasks and ElevenLabs for text-to-speech conversion.
+**An intelligent podcast generator that demonstrates AI Agent Patterns through practical implementation**
 
-## 🎯 Multi-LLM Architecture
+🎓 **Educational Purpose**: This project serves as a comprehensive learning platform for understanding AI Agent Patterns in production systems. While it generates professional-quality podcasts, its primary value lies in demonstrating advanced multi-agent coordination techniques.
 
-The system intelligently uses different LLMs for different tasks to optimize for both quality and cost:
+📚 **What You'll Learn**:
+- Hierarchical Coordination (Supervisor-Worker Pattern)
+- Agent-to-Agent Communication and Consensus Building
+- Circuit Breaker Resilience Patterns
+- Specialized Agent Architecture
+- Observer Pattern for System Monitoring
+- Real-world Multi-Agent System Design
 
+## ✨ Features
 | Task | Model | Purpose |
 |------|-------|---------|
 | Article Ranking | Claude Haiku | Fast and cost-effective relevance scoring |

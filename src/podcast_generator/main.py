@@ -9,21 +9,29 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from podcast_generator.langgraph_workflow import run_podcast_workflow
+from podcast_generator.langgraph_workflow import run_podcast_workflow, run_podcast_workflow_with_patterns
 from utils.env import validate_api_keys, load_env_vars
 
 
-async def main(language: str = 'en', voice: str = 'Aria'):
+async def main(
+    language: str = 'en', 
+    voice: str = 'Aria', 
+    enable_a2a: bool = False,
+    use_supervisor: bool = False
+):
     """Run the podcast generator workflow.
     
     Args:
         language: Language code ('en' for English, 'es' for Spanish).
         voice: Voice to use for the podcast.
+        enable_a2a: Whether to enable A2A collaborative assessment.
+        use_supervisor: Whether to use Agent Supervisor pattern.
     """
     print("AI Podcast Generator")
     print("-------------------")
     print(f"Language: {'Spanish' if language == 'es' else 'English'}")
     print(f"Voice: {voice}")
+    print(f"A2A Protocol: {'Enabled' if enable_a2a else 'Disabled'}")
     print("-------------------")
     
     # Load environment variables
@@ -67,9 +75,30 @@ async def main(language: str = 'en', voice: str = 'Aria'):
     
     print("Starting podcast generation workflow...")
     try:
-        # Run the podcast workflow
-        await run_podcast_workflow(language=language, voice_name=voice)
-        print("\n✓ Podcast generation completed successfully!")
+        if use_supervisor:
+            # Run with Agent Supervisor Pattern
+            result = await run_podcast_workflow_with_patterns(
+                language=language, 
+                voice_name=voice, 
+                enable_a2a=enable_a2a,
+                use_supervisor=True,
+                use_resilience=False
+            )
+            
+            if result.get("success"):
+                print(f"\n✓ Podcast generation completed successfully!")
+                print(f"   Audio saved to: {result.get('audio_path')}")
+                print(f"   Articles processed: {result.get('articles_processed')}")
+                print(f"   Tasks completed: {result.get('tasks_completed', 'N/A')}")
+                
+                if 'system_status' in result:
+                    print(f"   System health: {result['system_status'].get('system_health')}")
+            else:
+                print(f"\n✗ Podcast generation failed: {result.get('error')}")
+        else:
+            # Run traditional LangGraph workflow
+            await run_podcast_workflow(language=language, voice_name=voice, enable_a2a=enable_a2a)
+            print("\n✓ Podcast generation completed successfully!")
     except Exception as e:
         print(f"\n✗ An error occurred during podcast generation: {e}")
         if "ELEVEN_API_KEY" in str(e):
@@ -87,9 +116,18 @@ if __name__ == "__main__":
                       help='Language for the podcast (en/es)')
     parser.add_argument('-v', '--voice', type=str, default='Aria',
                       help='Voice to use for the podcast')
+    parser.add_argument('--enable-a2a', action='store_true',
+                      help='Enable A2A collaborative article assessment')
+    parser.add_argument('--use-supervisor', action='store_true',
+                      help='Use Agent Supervisor pattern for advanced coordination')
     
     # Parse command line arguments
     args = parser.parse_args()
     
     # Run the main function with the parsed arguments
-    asyncio.run(main(language=args.language, voice=args.voice))
+    asyncio.run(main(
+        language=args.language, 
+        voice=args.voice, 
+        enable_a2a=args.enable_a2a,
+        use_supervisor=args.use_supervisor
+    ))

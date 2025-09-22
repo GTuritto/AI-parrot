@@ -26,6 +26,7 @@ from typing import List, Dict, Any, Optional, Union, Literal
 import asyncio
 from elevenlabs.client import ElevenLabs
 from .translator import Translator
+from utils.env import APIKeys
 
 class FileManager:
     """Manages all file operations for the podcast generator.
@@ -50,7 +51,17 @@ class FileManager:
             output_dir: Directory where output files will be saved. Defaults to "PodcastOutput".
         """
         self.output_dir = output_dir
-        self.voice_client = ElevenLabs()
+        
+        # Initialize API keys
+        api_keys = APIKeys()
+        
+        # Initialize ElevenLabs client with API key
+        if api_keys.elevenlabs:
+            self.voice_client = ElevenLabs(api_key=api_keys.elevenlabs)
+        else:
+            print("Warning: ELEVENLABS_API_KEY not found. Audio generation will fail.")
+            self.voice_client = None
+            
         self.translator = Translator()
         os.makedirs(output_dir, exist_ok=True)
     
@@ -144,6 +155,10 @@ class FileManager:
         Returns:
             Voice ID string.
         """
+        if not self.voice_client:
+            print("ElevenLabs client not available. Using default voice ID.")
+            return "21m00Tcm4TlvDq8ikWAM"  # Default voice ID (Rachel)
+            
         try:
             # Get all available voices
             response = self.voice_client.voices.get_all()
@@ -165,11 +180,12 @@ class FileManager:
     async def save_mp3_file(
         self, 
         text_content: str, 
-        voice_name: str = "Sarah",
-        language: Literal['en', 'es'] = 'es',
+        voice_name: str = 'Sarah', 
+        language: str = 'es',
         save_translation: bool = True,
         max_retries: int = 3,
-        chunk_size: int = 2048
+        chunk_size: int = 2048,
+        add_intro_outro: bool = True
     ) -> str:
         """Convert text to speech using ElevenLabs and save as MP3.
         
@@ -194,6 +210,8 @@ class FileManager:
             chunk_size: Size of text chunks to process at once.
                       Helps with handling large texts and avoiding timeouts.
                       Defaults to 2048 characters.
+            add_intro_outro: Whether to add intro and outro to the podcast.
+                           Defaults to True.
             
         Returns:
             str: Path to the saved MP3 file.
@@ -213,6 +231,10 @@ class FileManager:
         """
         original_text = text_content
         date_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Add intro and outro if requested
+        if add_intro_outro:
+            text_content = self._add_intro_outro(text_content, language)
         
         # Translate to Spanish if needed
         if language == 'es':
@@ -249,6 +271,12 @@ class FileManager:
         output_path = os.path.join(self.output_dir, output_filename)
         
         retry_count = 0
+        
+        # Check if ElevenLabs client is available
+        if not self.voice_client:
+            error_msg = "ElevenLabs client not initialized. Please check your ELEVENLABS_API_KEY."
+            print(error_msg)
+            raise Exception(error_msg)
         
         while retry_count < max_retries:
             try:
@@ -315,6 +343,37 @@ class FileManager:
                 })
         
         return file_path
+    
+    def _add_intro_outro(self, content: str, language: str) -> str:
+        """Add intro and outro to the podcast content.
+        
+        Args:
+            content: The main podcast content.
+            language: Language code ('en' or 'es').
+            
+        Returns:
+            Content with intro and outro added.
+        """
+        if language == 'es':
+            intro = ("¡Bienvenidos al Podcast de Inteligencia Artificial! "
+                    "Soy tu anfitrión de IA, y hoy te traigo las últimas noticias "
+                    "y desarrollos más importantes en el mundo de la inteligencia artificial. "
+                    "Vamos a comenzar.")
+            outro = ("Eso es todo por el episodio de hoy. "
+                    "Gracias por escuchar el Podcast de Inteligencia Artificial. "
+                    "Mantente al día con las últimas innovaciones en IA, "
+                    "y nos vemos en el próximo episodio. ¡Hasta pronto!")
+        else:
+            intro = ("Welcome to the AI Podcast! "
+                    "I'm your AI host, bringing you the latest news "
+                    "and most important developments in the world of artificial intelligence. "
+                    "Let's dive in.")
+            outro = ("That's all for today's episode. "
+                    "Thank you for listening to the AI Podcast. "
+                    "Stay tuned for the latest AI innovations, "
+                    "and we'll see you in the next episode. Until next time!")
+        
+        return f"{intro} {content} {outro}"
         
     def _clean_podcast_script(self, script: str) -> str:
         """Clean and format the podcast script for natural reading.

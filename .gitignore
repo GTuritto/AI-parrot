@@ -46,3 +46,7 @@ Thumbs.db
 
 # Podcast output directory
 PodcastOutput/
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md

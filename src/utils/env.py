@@ -65,11 +65,6 @@ class APIKeys:
         return os.getenv("OPENROUTER_API_KEY", "")
     
     @property
-    def elevenlabs(self) -> str:
-        """Get ElevenLabs API key."""
-        return os.getenv("ELEVENLABS_API_KEY", "")
-    
-    @property
     def tavily(self) -> str:
         """Get Tavily API key."""
         return os.getenv("TAVILY_API_KEY", "")

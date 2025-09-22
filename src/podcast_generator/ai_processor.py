@@ -49,7 +49,7 @@ class AIProcessor:
         elif model_type == "claude-sonnet":
             return ChatAnthropic(
                 api_key=self.api_keys.anthropic,
-                model_name="claude-3-sonnet-20240229",
+                model_name="claude-3-5-sonnet-20241022",
                 **common_params
             )
         elif model_type == "claude-opus":
@@ -68,7 +68,7 @@ class AIProcessor:
             # Fallback to Claude Sonnet if GPT-4 is not available
             return ChatAnthropic(
                 api_key=self.api_keys.anthropic,
-                model_name="claude-3-sonnet-20240229",
+                model_name="claude-3-5-sonnet-20241022",
                 **common_params
             )
     

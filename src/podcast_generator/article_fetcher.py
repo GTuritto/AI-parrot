@@ -7,6 +7,8 @@ import feedparser
 from bs4 import BeautifulSoup
 import requests
 
+# A2A-enhanced article fetching
+
 # Define keywords for interesting articles
 INTERESTING_KEYWORDS = [
     "AI", "Artificial Intelligence", "Machine Learning", "Deep Learning", 
@@ -111,7 +113,7 @@ async def fetch_venturebeat_ai() -> List[Dict[str, Any]]:
 
 
 async def fetch_multiple_sources() -> List[Dict[str, Any]]:
-    """Fetch articles from multiple sources.
+    """Fetch articles from multiple sources using direct RSS (original method).
     
     Fetches from multiple AI news sources and combines the results.
     
@@ -134,13 +136,27 @@ async def fetch_multiple_sources() -> List[Dict[str, Any]]:
         if isinstance(result, list):
             all_articles.extend(result)
     
+    return _remove_duplicates(all_articles)
+
+
+def _remove_duplicates(articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Remove duplicate articles based on title.
+    
+    Args:
+        articles: List of article dictionaries.
+        
+    Returns:
+        List of unique articles.
+    """
     # Remove duplicates based on article title
     seen_titles = set()
     unique_articles = []
-    for article in all_articles:
+    for article in articles:
         title = article['title'].lower().strip()
         if title not in seen_titles:
             seen_titles.add(title)
             unique_articles.append(article)
     
     return unique_articles
+
+
