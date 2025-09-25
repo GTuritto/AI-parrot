@@ -47,6 +47,23 @@ Thumbs.db
 # Podcast output directory
 PodcastOutput/
 
+# Memory database files
+memory/*.db
+memory/*.db-journal
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+
+# Docker
+.dockerignore
 
 #Ignore vscode AI rules
 .github/instructions/codacy.instructions.md

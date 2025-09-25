@@ -30,19 +30,12 @@ from bs4 import BeautifulSoup
 import requests
 
 from podcast_generator.mcp_client import MCPClient, MCPArticle
+from podcast_generator.config_loader import get_config_loader, RSSFeedConfig
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 # A2A-enhanced article fetching with MCP integration
-
-# Define keywords for interesting articles
-INTERESTING_KEYWORDS = [
-    "AI", "Artificial Intelligence", "Machine Learning", "Deep Learning", 
-    "LLM", "GPT", "Large Language Model", "ChatGPT", "ChatGPT-4", 
-    "Mistral", "MistralAI", "Llama", "Ollama", "OpenAI", "Anthropic", 
-    "Claude", "AI Ethics", "AI Policy", "AI Regulation", "AI Governance"
-]
 
 # MCP Server Configuration
 # 🎓 Learning Note: This configuration allows dynamic server discovery
@@ -121,98 +114,95 @@ def get_mcp_server_configs() -> List[Dict[str, Any]]:
     return configs
 
 
-def is_within_last_two_weeks(published_date: datetime) -> bool:
-    """Check if a date is within the last two weeks.
+def is_within_date_range(published_date: datetime, days: Optional[int] = None) -> bool:
+    """Check if a date is within the configured date range.
     
     Args:
         published_date: The date to check.
+        days: Number of days to check. If None, uses configuration.
         
     Returns:
-        True if the date is within the last two weeks, False otherwise.
+        True if the date is within the date range, False otherwise.
+        
+    🎓 Learning Note: Configuration-driven date filtering allows dynamic
+    adjustment of content freshness requirements.
     """
-    two_weeks_ago = datetime.now() - timedelta(days=14)
-    return published_date >= two_weeks_ago
-
-
-async def fetch_techcrunch_articles() -> List[Dict[str, Any]]:
-    """Fetch AI articles from TechCrunch.
+    if days is None:
+        config_loader = get_config_loader()
+        filter_config = config_loader.get_content_filter_config()
+        days = filter_config.date_range_days
     
+    cutoff_date = datetime.now() - timedelta(days=days)
+    return published_date >= cutoff_date
+
+
+async def fetch_rss_feed_articles(feed_config: RSSFeedConfig) -> List[Dict[str, Any]]:
+    """Fetch articles from a single RSS feed using configuration.
+    
+    Args:
+        feed_config: RSS feed configuration.
+        
     Returns:
         List of article dictionaries with title, link, description, and published date.
+        
+    🎓 Learning Objective: Understand how to create generic, configurable
+    functions that can handle multiple data sources.
+    
+    🔍 Pattern: Strategy Pattern
+    This function implements a generic strategy for RSS feed processing,
+    making it easy to add new feeds without code changes.
     """
-    techcrunch_url = "https://techcrunch.com/tag/artificial-intelligence/feed/"
-    feed = feedparser.parse(techcrunch_url)
-    articles = []
-    
-    for entry in feed.entries[:50]:  # Increased from 30 to 50 to get more articles
-        try:
-            published = datetime(*entry.published_parsed[:6])
-            if is_within_last_two_weeks(published):
-                articles.append({
-                    'title': entry.title,
-                    'link': entry.link,
-                    'description': entry.summary,
-                    'published': published,
-                    'source': 'TechCrunch'
-                })
-        except Exception as e:
-            print(f"Error processing TechCrunch article: {e}")
-    
-    return articles
-
-
-async def fetch_mit_tech_review_ai() -> List[Dict[str, Any]]:
-    """Fetch AI articles from MIT Technology Review's AI section.
-    
-    Returns:
-        List of article dictionaries with title, link, description, and published date.
-    """
-    url = "https://www.technologyreview.com/topic/artificial-intelligence/feed/"
-    feed = feedparser.parse(url)
-    articles = []
-    
-    for entry in feed.entries[:40]:
-        try:
-            published = datetime(*entry.published_parsed[:6])
-            if is_within_last_two_weeks(published):
-                articles.append({
-                    'title': entry.title,
-                    'link': entry.link,
-                    'description': entry.summary,
-                    'published': published,
-                    'source': 'MIT Tech Review'
-                })
-        except Exception as e:
-            print(f"Error processing MIT Tech Review article: {e}")
-    
-    return articles
-
-
-async def fetch_venturebeat_ai() -> List[Dict[str, Any]]:
-    """Fetch AI articles from VentureBeat's AI section.
-    
-    Returns:
-        List of article dictionaries with title, link, description, and published date.
-    """
-    url = "https://venturebeat.com/category/ai/feed/"
-    feed = feedparser.parse(url)
-    articles = []
-    
-    for entry in feed.entries[:40]:
-        try:
-            published = datetime(*entry.published_parsed[:6])
-            if is_within_last_two_weeks(published):
-                articles.append({
-                    'title': entry.title,
-                    'link': entry.link,
-                    'description': entry.summary,
-                    'published': published,
-                    'source': 'VentureBeat'
-                })
-        except Exception as e:
-            print(f"Error processing VentureBeat article: {e}")
-    
-    return articles
+    try:
+        logger.info(f"Fetching articles from {feed_config.name} ({feed_config.url})")
+        
+        # Get fetching configuration
+        config_loader = get_config_loader()
+        fetch_config = config_loader.get_fetching_config()
+        
+        # Parse the RSS feed
+        feed = feedparser.parse(feed_config.url)
+        articles = []
+        
+        # Process entries up to the configured maximum
+        max_entries = min(len(feed.entries), feed_config.max_articles)
+        
+        for entry in feed.entries[:max_entries]:
+            try:
+                # Parse publication date
+                if hasattr(entry, 'published_parsed') and entry.published_parsed:
+                    published = datetime(*entry.published_parsed[:6])
+                elif hasattr(entry, 'updated_parsed') and entry.updated_parsed:
+                    published = datetime(*entry.updated_parsed[:6])
+                else:
+                    # If no date available, use current time
+                    published = datetime.now()
+                
+                # Check if article is within date range
+                if is_within_date_range(published):
+                    article = {
+                        'title': entry.title,
+                        'link': entry.link,
+                        'description': getattr(entry, 'summary', ''),
+                        'published': published,
+                        'source': feed_config.source_label
+                    }
+                    
+                    # Add content if available
+                    if hasattr(entry, 'content') and entry.content:
+                        article['content'] = entry.content[0].value if isinstance(entry.content, list) else str(entry.content)
+                    
+                    articles.append(article)
+                    
+            except Exception as e:
+                logger.warning(f"Error processing article from {feed_config.name}: {e}")
+                continue
+        
+        logger.info(f"✅ Fetched {len(articles)} articles from {feed_config.name}")
+        return articles
+        
+    except Exception as e:
+        logger.error(f"❌ Error fetching from {feed_config.name}: {e}")
+        return []
 
 
 async def fetch_articles_from_mcp() -> List[Dict[str, Any]]:
@@ -311,37 +301,60 @@ async def fetch_multiple_sources() -> List[Dict[str, Any]]:
 
 
 async def fetch_rss_sources() -> List[Dict[str, Any]]:
-    """Fetch articles from RSS sources (fallback method).
+    """Fetch articles from RSS sources using configuration (fallback method).
     
-    This is the original RSS-based fetching method, now used as a fallback
-    or supplement to MCP-based fetching.
+    This method dynamically loads RSS feeds from configuration and fetches
+    articles from all enabled feeds concurrently.
     
     Returns:
-        Combined list of articles from RSS sources.
+        Combined list of articles from all configured RSS sources.
+        
+    🎓 Learning Objective: See how configuration-driven systems enable
+    dynamic behavior without code changes.
+    
+    🔍 Pattern: Configuration-Driven Execution
+    The system behavior is controlled by external configuration, making it
+    highly flexible and maintainable.
     """
-    # Fetch from multiple RSS sources concurrently
-    tasks = [
-        fetch_techcrunch_articles(),
-        fetch_mit_tech_review_ai(),
-        fetch_venturebeat_ai()
-    ]
-    
-    # Wait for all fetches to complete
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-    
-    # Combine results from all sources
-    all_articles = []
-    for result in results:
-        if isinstance(result, list):
-            all_articles.extend(result)
-        elif isinstance(result, Exception):
-            logger.error(f"RSS fetch error: {result}")
-    
-    return all_articles
+    try:
+        # Load RSS feed configurations
+        config_loader = get_config_loader()
+        enabled_feeds = config_loader.get_enabled_feeds()
+        
+        if not enabled_feeds:
+            logger.warning("⚠️  No RSS feeds configured or enabled")
+            return []
+        
+        logger.info(f"📡 Fetching from {len(enabled_feeds)} RSS sources")
+        
+        # Create tasks for concurrent fetching
+        tasks = [fetch_rss_feed_articles(feed_config) for feed_config in enabled_feeds]
+        
+        # Wait for all fetches to complete
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Combine results from all sources
+        all_articles = []
+        successful_fetches = 0
+        
+        for i, result in enumerate(results):
+            if isinstance(result, list):
+                all_articles.extend(result)
+                successful_fetches += 1
+                logger.info(f"✅ {enabled_feeds[i].name}: {len(result)} articles")
+            elif isinstance(result, Exception):
+                logger.error(f"❌ {enabled_feeds[i].name}: {result}")
+        
+        logger.info(f"📊 RSS Summary: {len(all_articles)} articles from {successful_fetches}/{len(enabled_feeds)} sources")
+        return all_articles
+        
+    except Exception as e:
+        logger.error(f"❌ Error in RSS fetching: {e}")
+        return []
 
 
 def _contains_interesting_keywords(title: str, description: str) -> bool:
-    """Check if article contains interesting AI-related keywords.
+    """Check if article contains interesting AI-related keywords from configuration.
     
     Args:
         title: Article title
@@ -350,16 +363,33 @@ def _contains_interesting_keywords(title: str, description: str) -> bool:
     Returns:
         True if article contains relevant keywords, False otherwise.
         
-    🎓 Learning Note: This implements a simple content filtering algorithm.
-    In production, you might use more sophisticated NLP techniques.
+    🎓 Learning Note: Configuration-driven keyword filtering allows dynamic
+    content relevance adjustment without code changes.
+    
+    🔍 Pattern: Strategy Pattern with Configuration
+    The filtering strategy is externalized to configuration, making it
+    easily modifiable for different use cases.
     """
-    content = f"{title} {description}".lower()
-    
-    for keyword in INTERESTING_KEYWORDS:
-        if keyword.lower() in content:
-            return True
-    
-    return False
+    try:
+        # Get keywords from configuration
+        config_loader = get_config_loader()
+        filter_config = config_loader.get_content_filter_config()
+        keywords = filter_config.keywords
+        
+        content = f"{title} {description}".lower()
+        
+        for keyword in keywords:
+            if keyword.lower() in content:
+                return True
+        
+        return False
+        
+    except Exception as e:
+        logger.warning(f"Error in keyword filtering: {e}")
+        # Fallback to basic AI keywords if configuration fails
+        basic_keywords = ["AI", "Artificial Intelligence", "Machine Learning"]
+        content = f"{title} {description}".lower()
+        return any(keyword.lower() in content for keyword in basic_keywords)
 
 
 def _remove_duplicates(articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

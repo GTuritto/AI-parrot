@@ -20,6 +20,7 @@ pydub==0.25.1
 
 # Streamlit (for UI)
 streamlit==1.38.0
+plotly==5.17.0
 
 # Additional utilities
 pydantic==2.9.2

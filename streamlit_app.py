@@ -139,7 +139,7 @@ async def generate_podcast_async(language: str, voice: str):
     """Generate podcast using the enterprise AI system."""
     try:
         # Use the API endpoint instead of direct function call for better reliability
-        api_url = "http://localhost:8000/api/generate"
+        api_url = "http://localhost:8000/generate"
         payload = {
             "language": language,
             "voice": voice
@@ -183,7 +183,7 @@ def format_file_size(size_bytes):
 def get_system_status():
     """Get system status from API."""
     try:
-        response = requests.get("http://localhost:8000/api/status", timeout=5)
+        response = requests.get("http://localhost:8000/status", timeout=5)
         if response.status_code == 200:
             return response.json()
         else:
@@ -194,7 +194,7 @@ def get_system_status():
 def get_api_health():
     """Get API health status."""
     try:
-        response = requests.get("http://localhost:8000/api/health", timeout=5)
+        response = requests.get("http://localhost:8000/health", timeout=5)
         if response.status_code == 200:
             return response.json()
         else:
@@ -337,36 +337,103 @@ def create_monitoring_dashboard():
 
 def get_docker_logs():
     """Get Docker container logs."""
+    logs = []
+    
+    # Method 1: Try API endpoint first
     try:
-        result = requests.get("http://localhost:8000/api/logs", timeout=5)
+        result = requests.get("http://localhost:8000/api/logs", timeout=10)
         if result.status_code == 200:
-            return result.json().get("logs", [])
-        else:
-            # Fallback to docker command
-            import subprocess
-            result = subprocess.run(
-                ["docker-compose", "logs", "--tail=100"], 
-                capture_output=True, 
-                text=True, 
-                cwd="/Users/giuseppe/Documents/Coding/AI-parrot"
-            )
-            if result.returncode == 0:
-                return result.stdout.split('\n')
-            else:
-                return [f"Error getting logs: {result.stderr}"]
+            api_response = result.json()
+            logs = api_response.get("logs", [])
+            if logs and len(logs) > 3:  # More than just placeholder messages
+                return logs
     except Exception as e:
-        return [f"Error fetching logs: {str(e)}"]
+        logs.append(f"API logs unavailable: {str(e)}")
+    
+    # Method 2: Try docker-compose logs
+    try:
+        import subprocess
+        import os
+        
+        # Try to find the project directory
+        project_dirs = [
+            "/Users/giuseppe/Documents/Coding/AI-parrot",
+            os.getcwd(),
+            os.path.dirname(os.path.abspath(__file__))
+        ]
+        
+        for project_dir in project_dirs:
+            if os.path.exists(os.path.join(project_dir, "docker-compose.yml")):
+                result = subprocess.run(
+                    ["docker-compose", "logs", "--tail=100", "ai-parrot-api"], 
+                    capture_output=True, 
+                    text=True, 
+                    cwd=project_dir,
+                    timeout=15
+                )
+                if result.returncode == 0 and result.stdout:
+                    docker_logs = result.stdout.split('\n')
+                    # Filter out empty lines and add timestamps
+                    filtered_logs = []
+                    for log in docker_logs:
+                        if log.strip():
+                            # Add timestamp if not present
+                            if not log.startswith('[') and not log.startswith('ai-parrot'):
+                                log = f"[{datetime.now().strftime('%H:%M:%S')}] {log}"
+                            filtered_logs.append(log.strip())
+                    return filtered_logs[-100:]  # Return last 100 lines
+                elif result.stderr:
+                    logs.append(f"Docker logs error: {result.stderr}")
+                break
+    except Exception as e:
+        logs.append(f"Docker command failed: {str(e)}")
+    
+    # Method 3: Try direct docker logs
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["docker", "logs", "--tail=50", "ai-parrot-ai-parrot-api-1"], 
+            capture_output=True, 
+            text=True,
+            timeout=10
+        )
+        if result.returncode == 0 and result.stdout:
+            return result.stdout.split('\n')[-50:]
+    except Exception as e:
+        logs.append(f"Direct docker logs failed: {str(e)}")
+    
+    # Method 4: Fallback - provide helpful information
+    if not logs or len(logs) < 5:
+        logs = [
+            f"[{datetime.now().strftime('%H:%M:%S')}] ⚠️  Unable to fetch real-time logs",
+            f"[{datetime.now().strftime('%H:%M:%S')}] 📋 To view logs manually:",
+            f"[{datetime.now().strftime('%H:%M:%S')}] 🔍 Run: docker-compose logs ai-parrot-api",
+            f"[{datetime.now().strftime('%H:%M:%S')}] 🔍 Or: docker logs ai-parrot-ai-parrot-api-1",
+            f"[{datetime.now().strftime('%H:%M:%S')}] 📊 API Status: Check the Monitoring tab",
+            f"[{datetime.now().strftime('%H:%M:%S')}] 💡 For terminal debugging: ./run_podcast.sh"
+        ]
+    
+    return logs
 
 def create_logs_tab():
     """Create logs viewing tab."""
     st.subheader("📋 System Logs")
     
-    col1, col2 = st.columns([3, 1])
+    # Control panel
+    col1, col2, col3 = st.columns([2, 1, 1])
     with col1:
         st.info("Real-time system and API logs from Docker container")
     with col2:
-        if st.button("🔄 Refresh Logs", use_container_width=True):
+        auto_refresh = st.checkbox("🔄 Auto-refresh", value=False, key="auto_refresh_logs")
+    with col3:
+        if st.button("🔄 Refresh Now", use_container_width=True):
             st.rerun()
+    
+    # Auto-refresh logic
+    if auto_refresh:
+        import time
+        time.sleep(2)
+        st.rerun()
     
     # Get logs
     logs = get_docker_logs()
@@ -382,14 +449,30 @@ def create_logs_tab():
         # Filter logs based on selection
         filtered_logs = []
         for log in logs[-100:]:  # Show last 100 lines
+            log_lower = log.lower()
             if log_filter == "All":
                 filtered_logs.append(log)
-            elif log_filter == "Errors only" and ("error" in log.lower() or "failed" in log.lower() or "401" in log):
-                filtered_logs.append(log)
-            elif log_filter == "API calls" and ("POST" in log or "GET" in log):
-                filtered_logs.append(log)
-            elif log_filter == "Generation process" and ("generating" in log.lower() or "podcast" in log.lower() or "agent" in log.lower()):
-                filtered_logs.append(log)
+            elif log_filter == "Errors only":
+                # Enhanced error detection
+                error_keywords = [
+                    "error", "failed", "exception", "traceback", "401", "402", "403", "404", "500", "502", "503", "504",
+                    "timeout", "connection refused", "quota_exceeded", "overloaded", "retry", "❌", "⚠️"
+                ]
+                if any(keyword in log_lower for keyword in error_keywords):
+                    filtered_logs.append(log)
+            elif log_filter == "API calls":
+                # Enhanced API call detection
+                api_keywords = ["post", "get", "put", "delete", "patch", "http request", "api.", "/api/", "curl"]
+                if any(keyword in log_lower for keyword in api_keywords):
+                    filtered_logs.append(log)
+            elif log_filter == "Generation process":
+                # Enhanced generation process detection
+                gen_keywords = [
+                    "generating", "podcast", "agent", "supervisor", "a2a", "fetch", "articles", "summariz", 
+                    "script", "audio", "translation", "workflow", "task", "🤖", "🎙️", "📰", "✅"
+                ]
+                if any(keyword in log_lower for keyword in gen_keywords):
+                    filtered_logs.append(log)
         
         # Display logs in a text area
         log_text = '\n'.join(filtered_logs) if filtered_logs else "No logs match the current filter"

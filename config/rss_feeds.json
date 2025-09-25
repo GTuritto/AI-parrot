@@ -1,0 +1,78 @@
+{
+  "rss_feeds": [
+    {
+      "name": "TechCrunch AI",
+      "url": "https://techcrunch.com/tag/artificial-intelligence/feed/",
+      "source_label": "TechCrunch",
+      "max_articles": 50,
+      "description": "TechCrunch's artificial intelligence news and articles",
+      "enabled": true
+    },
+    {
+      "name": "MIT Technology Review AI",
+      "url": "https://www.technologyreview.com/topic/artificial-intelligence/feed/",
+      "source_label": "MIT Tech Review",
+      "max_articles": 40,
+      "description": "MIT Technology Review's AI section",
+      "enabled": true
+    },
+    {
+      "name": "VentureBeat AI",
+      "url": "https://venturebeat.com/category/ai/feed/",
+      "source_label": "VentureBeat",
+      "max_articles": 40,
+      "description": "VentureBeat's AI category feed",
+      "enabled": true
+    },
+    {
+      "name": "Ars Technica AI",
+      "url": "https://feeds.arstechnica.com/arstechnica/technology-lab",
+      "source_label": "Ars Technica",
+      "max_articles": 30,
+      "description": "Ars Technica technology and AI news",
+      "enabled": false
+    },
+    {
+      "name": "The Verge AI",
+      "url": "https://www.theverge.com/ai-artificial-intelligence/rss/index.xml",
+      "source_label": "The Verge",
+      "max_articles": 30,
+      "description": "The Verge's AI and artificial intelligence coverage",
+      "enabled": false
+    },
+    {
+      "name": "AI News",
+      "url": "https://www.artificialintelligence-news.com/feed/",
+      "source_label": "AI News",
+      "max_articles": 35,
+      "description": "Dedicated AI news website",
+      "enabled": false
+    },
+    {
+      "name": "Wired AI",
+      "url": "https://www.wired.com/feed/tag/ai/latest/rss",
+      "source_label": "Wired",
+      "max_articles": 25,
+      "description": "Wired magazine's AI coverage",
+      "enabled": false
+    }
+  ],
+  "content_filters": {
+    "keywords": [
+      "AI", "Artificial Intelligence", "Machine Learning", "Deep Learning", 
+      "LLM", "GPT", "Large Language Model", "ChatGPT", "ChatGPT-4", 
+      "Mistral", "MistralAI", "Llama", "Ollama", "OpenAI", "Anthropic", 
+      "Claude", "AI Ethics", "AI Policy", "AI Regulation", "AI Governance",
+      "Neural Network", "Transformer", "BERT", "Computer Vision", "NLP",
+      "Natural Language Processing", "Generative AI", "AGI", "AI Safety"
+    ],
+    "date_range_days": 14,
+    "min_content_length": 50
+  },
+  "fetching_config": {
+    "concurrent_requests": true,
+    "timeout_seconds": 30,
+    "retry_attempts": 3,
+    "user_agent": "AI-Parrot Podcast Generator/1.0"
+  }
+}

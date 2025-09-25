@@ -4,7 +4,8 @@ from typing import TypedDict, List, Dict, Any, Tuple
 
 from langgraph.graph import StateGraph, END
 
-from podcast_generator.article_fetcher import fetch_multiple_sources, INTERESTING_KEYWORDS
+from podcast_generator.article_fetcher import fetch_multiple_sources
+from podcast_generator.config_loader import get_config_loader
 from podcast_generator.ai_processor import AIProcessor
 from podcast_generator.file_utils import FileManager
 from podcast_generator.a2a_protocol import enhance_articles_with_a2a
