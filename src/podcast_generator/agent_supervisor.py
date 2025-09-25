@@ -315,7 +315,8 @@ class ContentProcessorAgent(SpecializedAgent):
             
         elif task.task_name == "generate_script":
             summaries = task.payload.get("summaries", [])
-            script = processor.generate_podcast_script(summaries)
+            voice_name = task.payload.get("voice_name", "Aria")
+            script = processor.generate_podcast_script(summaries, voice_name)
             return {"script": script}
         
         return self._handle_unknown_task(task)
@@ -482,7 +483,7 @@ class AgentSupervisor:
             script_task_id = await self.submit_task(
                 AgentType.CONTENT_PROCESSOR,
                 "generate_script",
-                {"summaries": summaries, "language": language},
+                {"summaries": summaries, "language": language, "voice_name": voice_name},
                 priority=1
             )
             script_result = await self.execute_task(script_task_id)

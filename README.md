@@ -1,16 +1,15 @@
-# 🤖 AI-Parrot Podcast Generator - Educational Edition
+# 🤖 AI-Parrot Podcast Generator
 
-**An intelligent podcast generator that demonstrates AI Agent Patterns through practical implementation**
+**Enterprise AI Agent System for Intelligent Podcast Generation**
 
-🎓 **Educational Purpose**: This project serves as a comprehensive learning platform for understanding AI Agent Patterns in production systems. While it generates professional-quality podcasts, its primary value lies in demonstrating advanced multi-agent coordination techniques.
+🏗️ **Core Architecture**: Built with enterprise-grade AI Agent Patterns as the fundamental system design. This isn't just a podcast generator - it's a comprehensive demonstration of production-ready multi-agent coordination.
 
-📚 **What You'll Learn**:
-- Hierarchical Coordination (Supervisor-Worker Pattern)
-- Agent-to-Agent Communication and Consensus Building
-- Circuit Breaker Resilience Patterns
-- Specialized Agent Architecture
-- Observer Pattern for System Monitoring
-- Real-world Multi-Agent System Design
+🤖 **Built-in Enterprise Patterns**:
+- 🤝 **A2A Collaborative Assessment** - Agents collaborate on quality scoring
+- 🏛️ **Agent Supervisor Coordination** - Hierarchical task orchestration
+- 🔗 **MCP Integration with SSE Transport** - Dynamic content sourcing
+- 🔄 **Circuit Breaker Resilience** - Fault tolerance and graceful degradation
+- 👁️ **Observer Pattern Monitoring** - Real-time system observability
 
 ## ✨ Features
 | Task | Model | Purpose |
@@ -74,8 +73,11 @@ Add these to your `.env` file in the project root.
 # Make the script executable (only needed once)
 chmod +x run_podcast.sh
 
-# Run with default settings
-./run_podcast.sh
+# Generate English podcast with default voice
+./run_podcast.sh --language en --voice "Aria"
+
+# Generate Spanish podcast
+./run_podcast.sh --language es --voice "Sarah"
 
 # Show help
 ./run_podcast.sh --help
@@ -83,23 +85,68 @@ chmod +x run_podcast.sh
 
 ### Manual Execution
 
-If you prefer to run it manually:
-
 ```bash
 # Activate the virtual environment
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# Run the podcast generator
-python -m podcast_generator.main
+# Generate podcast with enterprise AI patterns
+python -m podcast_generator.main --language en --voice "Aria"
+
+# Spanish podcast
+python -m podcast_generator.main --language es --voice "Sarah"
+```
+
+### 🌐 Unified Web Interface
+
+The system provides both FastAPI and Streamlit in a single container:
+
+```bash
+# Run unified service with Docker (Recommended)
+docker-compose up --build
+
+# Or run locally
+./run_api.sh      # API only
+./run_ui.sh       # Streamlit only
+
+# Access the unified system
+# - Streamlit UI: http://localhost:8501 (Interactive Interface)
+# - FastAPI: http://localhost:8000/api (REST API)
+# - Interactive Docs: http://localhost:8000/api/docs
+# - System Info: http://localhost:8000/info
+# - Health Check: http://localhost:8000/api/health
+```
+
+**API Usage:**
+```bash
+# Generate podcast via API
+curl -X POST "http://localhost:8000/api/generate" \
+  -H "Content-Type: application/json" \
+  -d '{"language": "en", "voice": "Aria"}'
+
+# Check system status
+curl -X GET "http://localhost:8000/api/status"
 ```
 
 ## 📚 Documentation
 
-For detailed documentation, please refer to the following files in the `docs/` directory:
+### **English Documentation**
 
-- [ARCHITECTURE.md](docs/ARCHITECTURE.md): System architecture and design
-- [CODE_EXPLANATION.md](docs/CODE_EXPLANATION.md): In-depth code documentation
-- [QUICKSTART.md](docs/QUICKSTART.md): Getting started guide
+For detailed documentation, please refer to the following files:
+
+- [EDUCATIONAL_GUIDE.md](EDUCATIONAL_GUIDE.md): Comprehensive learning path for AI Agent Patterns
+- [API_DOCUMENTATION.md](API_DOCUMENTATION.md): Complete API reference and examples
+- [SYSTEM_OVERVIEW.md](SYSTEM_OVERVIEW.md): System architecture and capabilities
+- [CODE_WALKTHROUGH.md](CODE_WALKTHROUGH.md): In-depth code documentation
+- [LEARNING_OUTCOMES.md](LEARNING_OUTCOMES.md): Skills assessment and career readiness
+
+### **Documentación en Español**
+
+Para documentación detallada en español, consulta los siguientes archivos:
+
+- [README_ES.md](README_ES.md): Guía completa del sistema en español
+- [GUIA_EDUCATIVA_ES.md](GUIA_EDUCATIVA_ES.md): Ruta de aprendizaje integral para Patrones de Agentes IA
+- [DOCUMENTACION_API_ES.md](DOCUMENTACION_API_ES.md): Referencia completa de API y ejemplos
+- [RESUMEN_SISTEMA_ES.md](RESUMEN_SISTEMA_ES.md): Arquitectura del sistema y capacidades
 
 ## 🔧 Configuration
 
@@ -115,6 +162,34 @@ ANTHROPIC_API_KEY=your_anthropic_key_here
 OPENAI_API_KEY=your_openai_key_here  # Required for Spanish translation
 ELEVENLABS_API_KEY=your_elevenlabs_key_here  # Required for audio generation
 NEWS_API_KEY=your_newsapi_key_here  # Falls back to RSS feeds if not available
+
+# MCP Server Configuration (Optional)
+MCP_SERVER_URL=http://localhost:3002/mcp
+MCP_SSE_URL=http://localhost:3002/sse
+MCP_SERVER_NAME=local-mcp-server
+```
+
+### 🔗 MCP Integration
+
+The system supports **Model Context Protocol (MCP)** for dynamic content sourcing with intelligent fallback to RSS feeds.
+
+**MCP Server**: For enhanced article fetching, you can use our companion RSS MCP Server:
+
+- **Repository**: [RSS-MCPserver](https://github.com/GTuritto/RSS-MCPserver)
+- **Purpose**: Provides dynamic RSS content via MCP protocol with SSE transport
+- **Features**: Real-time content sourcing, intelligent caching, multi-feed aggregation
+- **Fallback**: System automatically falls back to direct RSS feeds if MCP server is unavailable
+
+The MCP integration demonstrates enterprise-grade content sourcing patterns with resilient fallback mechanisms.
+
+**Quick MCP Setup:**
+```bash
+# Clone and run the MCP server
+git clone https://github.com/GTuritto/RSS-MCPserver
+cd RSS-MCPserver
+npm install && npm start
+
+# The AI-Parrot system will automatically detect and use the MCP server
 ```
 
 ### Language and Voice Options

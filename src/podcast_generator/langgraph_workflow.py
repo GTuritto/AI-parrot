@@ -171,7 +171,8 @@ def generate_podcast_script(state: PodcastState) -> PodcastState:
     """
     print("Generating podcast script...")
     processor = AIProcessor()
-    script = processor.generate_podcast_script(state['summaries'])
+    voice_name = state.get('voice_name', 'Aria')
+    script = processor.generate_podcast_script(state['summaries'], voice_name)
     revised_script = processor.revise_podcast_script(script)
     state['revised_script'] = revised_script
     print("Podcast script generated and revised")

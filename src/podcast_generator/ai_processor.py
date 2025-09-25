@@ -1,5 +1,6 @@
 """AI processing module for podcast generation."""
 from typing import Dict, List, Any, Optional, Tuple, Literal
+from datetime import datetime
 
 from langchain_anthropic import ChatAnthropic
 from langchain_openai import ChatOpenAI
@@ -7,6 +8,7 @@ from langchain.schema.messages import HumanMessage, SystemMessage
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from utils.env import APIKeys
+from podcast_generator.memory_system import MemoryManager, MemoryType
 
 # Define model types for type hints
 ModelType = Literal["claude-haiku", "claude-sonnet", "claude-opus", "gpt-4"]
@@ -25,6 +27,9 @@ class AIProcessor:
             
         # Initialize OpenAI model if available (for script refinement)
         self.openai_available = bool(self.api_keys.openai)
+        
+        # Initialize memory system
+        self.memory = MemoryManager()
         
     def _get_llm(self, model_type: ModelType) -> BaseChatModel:
         """Get the appropriate LLM for the specified task.
@@ -162,7 +167,7 @@ class AIProcessor:
         return sorted(result, key=lambda x: x['final_score'], reverse=True)
     
     def summarize_article(self, article: Dict[str, Any], max_retries: int = 3) -> str:
-        """Summarize an article using Claude AI.
+        """Summarize an article using Claude AI with memory-enhanced context.
         
         Args:
             article: Article dictionary to summarize.
@@ -171,6 +176,12 @@ class AIProcessor:
         Returns:
             Summarized article text.
         """
+        # Store article in memory for context
+        self.memory.store_article(article, importance=0.7)
+        
+        # Get relevant context from memory
+        context = self.memory.get_relevant_context([article], limit=3)
+        
         content = f"{article['title']}: {article.get('description', '')}"
         system_prompt = """You are a helpful AI assistant that summarizes articles about artificial intelligence. 
         Focus on the key points and main ideas, keeping the summary concise and informative."""
@@ -192,54 +203,141 @@ class AIProcessor:
                     return content  # Return original content if summarization fails
                 continue
     
-    def generate_podcast_script(self, summaries: List[Dict[str, Any]]) -> str:
-        """Generate a podcast script from article summaries.
+    def generate_podcast_script(self, summaries: List[Dict[str, Any]], voice_name: str = "Aria") -> str:
+        """Generate a podcast script from article summaries with memory-enhanced context.
         
         Args:
             summaries: List of article dictionaries with summaries.
+            voice_name: Name of the voice/presenter.
             
         Returns:
             Generated podcast script optimized for TTS.
         """
         if not summaries:
-            return "Welcome to Artificial Intelligence Today. No AI news updates are available right now. Check back soon for more updates."
+            return f"Hi, I'm {voice_name}. No AI news updates are available right now. Check back soon for more developments."
         
-        # Format the articles for the prompt
+        # Store generation context in memory
+        generation_context = {
+            "voice_name": voice_name,
+            "article_count": len(summaries),
+            "timestamp": datetime.now().isoformat()
+        }
+        self.memory.store_generation_context(generation_context)
+        
+        # Get relevant context from memory
+        memory_context = self.memory.get_relevant_context(summaries, limit=5)
+        
+        # Format the articles for the prompt (no article numbers)
         articles_text = ""
-        for i, article in enumerate(summaries, 1):
-            articles_text += f"\n\nArticle {i}: {article['title']}\n{article.get('summary', 'No summary available.')}"
+        for article in summaries:
+            title = article.get('title', 'AI News Update')
+            summary = article.get('summary', 'No summary available.')
+            articles_text += f"\n\n{title}\n{summary}"
+            
+        # Add memory context if available
+        context_info = ""
+        if memory_context.get("recent_articles"):
+            context_info += "\n\nRECENT CONTEXT: You've recently covered similar topics, so build on that knowledge naturally but with a completely different intro approach."
         
-        system_prompt = """You are a professional radio host creating a clean, engaging podcast script about the latest AI news.
-The script will be read by a text-to-speech system, so please follow these guidelines carefully:
+        if memory_context.get("user_patterns"):
+            patterns = memory_context["user_patterns"]
+            if patterns:
+                context_info += f"\n\nUSER PREFERENCES: Based on patterns, prefer {patterns[0].get('data', {}).get('language', 'engaging')} style."
+                
+        # Add instruction to avoid repetition
+        context_info += "\n\nIMPORTANT: Create a completely unique introduction that hasn't been used in recent podcasts. Make it feel spontaneous and fresh."
+        
+        system_prompt = f"""You are {voice_name}, a professional AI news presenter delivering live news updates.
+You are speaking directly to your audience in a natural, conversational way - NOT reading from a script.
 
-- Write in a natural, conversational tone
-- Keep sentences short and clear (max 15-20 words)
-- Avoid complex sentence structures
-- Use simple, direct language
-- Skip any meta-commentary about the script format
-- Don't mention being a host or use phrases like "in this episode"
-- Avoid quotation marks and special formatting
-- Use em dashes for pauses — like this
-- Keep numbers simple (e.g., "thirteen point three million" instead of "13.3 million")
-- Start with the content immediately - no intros or titles
-- Create a seamless narrative that flows naturally from one story to the next"""
+CRITICAL REQUIREMENTS:
+- Sound like a real news presenter speaking naturally, not reading
+- Never mention "script", "article", "episode", or any meta-references
+- Never use phrases like "according to reports" or "this article says"
+- Present information as if you personally know these developments
+- Create a unique, varied introduction each time - never repeat the same opening
+- Flow naturally between topics without numbered transitions
+- Speak as if these are breaking developments you're sharing
+- Use natural speech patterns with varied sentence lengths
+- Include natural presenter phrases like "Meanwhile", "In other news", "Also today"
+- Keep it conversational but professional
+- No quotation marks or special formatting
+- Use em dashes for natural pauses — like this
+- Keep numbers simple and spoken naturally
+
+INTRO VARIETY: Create a completely fresh, unique opening each time with varied content and approach. Never repeat the same intro. Examples of variety:
+
+TIME-BASED VARIATIONS:
+- "Good morning, I'm {voice_name} and artificial intelligence is moving fast today"
+- "It's another exciting day in AI, I'm {voice_name} with the latest breakthroughs"
+- "Welcome to this moment in AI history, {voice_name} here with today's developments"
+
+CONTENT-FOCUSED VARIATIONS:
+- "Some remarkable things are happening in artificial intelligence right now, I'm {voice_name}"
+- "The AI world is buzzing with new developments, {voice_name} bringing you the highlights"
+- "Breakthrough after breakthrough in AI, I'm {voice_name} with what matters most"
+
+ENGAGING VARIATIONS:
+- "You won't believe what's happening in AI today, {voice_name} here with the stories"
+- "Artificial intelligence just got more interesting, I'm {voice_name} with the details"
+- "The future of AI is unfolding right now, {voice_name} with the latest insights"
+
+CONVERSATIONAL VARIATIONS:
+- "Let me tell you what caught my attention in AI today, I'm {voice_name}"
+- "There's so much happening in artificial intelligence, {voice_name} here to break it down"
+- "AI researchers have been busy, I'm {voice_name} with what they've discovered"
+
+ALWAYS create completely new intro content that feels fresh and spontaneous.
+
+Present each story as breaking news you're personally delivering, not content you're reading.
+
+{context_info}"""
 
         try:
             # Use Claude Opus for script generation (highest quality for creative content)
             llm = self._get_llm("claude-opus")
             messages = [
                 SystemMessage(content=system_prompt),
-                HumanMessage(content=f"Create a podcast script based on these articles:\n\n{articles_text}")
+                HumanMessage(content=f"Deliver these AI news developments naturally as {voice_name}. Create a completely unique, fresh intro that's never been used before - make it spontaneous and engaging. Present each story as breaking news you're personally sharing with your audience:\n\n{articles_text}")
             ]
             response = llm.invoke(messages)
             return response.content
         except Exception as e:
             print(f"Error generating podcast script: {e}")
-            # Fallback to simple formatting if AI generation fails
-            script = "Welcome to Artificial Intelligence Today. "
-            for article in summaries:
-                script += f"{article['title']}. {article.get('summary', 'No summary available.')} "
-            script += "That's all for today's AI update."
+            # Fallback to natural presentation if AI generation fails
+            import random
+            intros = [
+                f"Some remarkable things are happening in artificial intelligence right now, I'm {voice_name}.",
+                f"The AI world is buzzing with new developments, {voice_name} bringing you the highlights.",
+                f"You won't believe what's happening in AI today, {voice_name} here with the stories.",
+                f"Breakthrough after breakthrough in AI, I'm {voice_name} with what matters most.",
+                f"Let me tell you what caught my attention in AI today, I'm {voice_name}.",
+                f"Artificial intelligence just got more interesting, I'm {voice_name} with the details.",
+                f"The future of AI is unfolding right now, {voice_name} with the latest insights.",
+                f"There's so much happening in artificial intelligence, {voice_name} here to break it down.",
+                f"AI researchers have been busy, I'm {voice_name} with what they've discovered.",
+                f"Welcome to this moment in AI history, {voice_name} here with today's developments.",
+                f"It's another exciting day in AI, I'm {voice_name} with the latest breakthroughs.",
+                f"The pace of AI innovation is incredible, I'm {voice_name} with today's highlights."
+            ]
+            script = random.choice(intros) + " "
+            
+            transitions = ["Meanwhile, ", "In other news, ", "Also today, ", "Additionally, ", ""]
+            for i, article in enumerate(summaries):
+                title = article.get('title', 'AI News Update')
+                summary = article.get('summary', 'No summary available.')
+                if i > 0:
+                    script += random.choice(transitions)
+                script += f"{summary} "
+            
+            outros = [
+                "That's your AI update for today.",
+                "More developments as they happen.",
+                "Stay tuned for more AI breakthroughs.",
+                "We'll keep you updated on these stories.",
+                "That's the latest from the world of artificial intelligence."
+            ]
+            script += random.choice(outros)
             return script
     
     def revise_podcast_script(self, script: str) -> str:
@@ -251,20 +349,22 @@ The script will be read by a text-to-speech system, so please follow these guide
         Returns:
             Script optimized for natural-sounding TTS output.
         """
-        system_prompt = """You are a professional audio editor preparing a script for text-to-speech synthesis.
-Please optimize the podcast script for the best possible TTS output following these rules:
+        system_prompt = """You are a professional audio editor preparing natural news presentation for text-to-speech synthesis.
+Optimize this news presentation to sound like a real presenter speaking naturally, NOT reading a script:
 
-1. Start with the content immediately - NO introductory phrases
-2. Remove any script-like elements (e.g., "Host:", "Narrator:", "[sound effect]")
-3. Convert numbers to words (e.g., "13.3 million" → "thirteen point three million")
-4. Replace abbreviations with full words (e.g., "AI" → "artificial intelligence" on first mention)
-5. Break long sentences into shorter ones (max 15-20 words)
-6. Remove or rephrase complex technical terms for clarity
-7. Add em dashes — for natural pauses
-8. Remove any meta-commentary about the script format
-9. Ensure smooth transitions between ideas
-10. Remove any self-referential phrases (e.g., "in this episode")
-11. Make sure the script sounds natural when spoken aloud
+CRITICAL REQUIREMENTS:
+1. Remove ANY references to "script", "article", "episode", or meta-commentary
+2. Remove phrases like "according to reports", "this article says", "in this episode"
+3. Make it sound like the presenter personally knows these developments
+4. Ensure natural speech flow with varied sentence lengths
+5. Convert numbers to words (e.g., "13.3 million" → "thirteen point three million")
+6. Replace abbreviations with full words on first mention
+7. Add em dashes — for natural pauses and breathing
+8. Remove any script-like formatting or stage directions
+9. Ensure smooth transitions between topics using natural presenter language
+10. Keep the conversational, professional news presenter tone throughout
+
+Make this sound like live news delivery, not script reading.
 
 Return ONLY the revised script with NO additional commentary or explanations."""
         
@@ -274,7 +374,7 @@ Return ONLY the revised script with NO additional commentary or explanations."""
             llm = self._get_llm("gpt-4")
             messages = [
                 SystemMessage(content=system_prompt),
-                HumanMessage(content=f"Please optimize this podcast script for TTS:\n\n{script}")
+                HumanMessage(content=f"Transform this into natural news presentation delivery, removing any script-like elements:\n\n{script}")
             ]
             response = llm.invoke(messages)
             # Additional cleaning to ensure no artifacts remain

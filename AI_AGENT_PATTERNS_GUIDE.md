@@ -53,29 +53,25 @@ The AI-Parrot podcast generator has been successfully enhanced with comprehensiv
 
 ## 🚀 **Usage Guide**
 
-### **Traditional Workflow (Recommended for Production)**
+### **Core Architecture**
 ```bash
-# Basic podcast generation
+# Generate podcast with enterprise AI patterns (built-in)
 python -m podcast_generator.main --language en --voice "Aria"
 
-# With A2A collaborative assessment
-python -m podcast_generator.main --language en --voice "Aria" --enable-a2a
+# Spanish podcast
+python -m podcast_generator.main --language es --voice "Sarah"
 
-# Spanish podcast with A2A
-python -m podcast_generator.main --language es --voice "Sarah" --enable-a2a
-```
-
-### **Advanced Agent Supervisor Mode**
-```bash
-# Full agent coordination with A2A
-python -m podcast_generator.main --language en --voice "Aria" --enable-a2a --use-supervisor
+# The system is built with enterprise AI agent patterns as core architecture:
+# 🤝 A2A Collaborative Assessment
+# 🏛️ Agent Supervisor Coordination
+# 🔗 MCP Integration with SSE Transport
+# 🔄 Circuit Breaker Resilience
+# 👁️ Observer Pattern Monitoring
 ```
 
 ### **Command Line Options**
 - `--language {en,es}`: Podcast language (English/Spanish)
 - `--voice VOICE`: ElevenLabs voice name
-- `--enable-a2a`: Enable Agent-to-Agent collaborative assessment
-- `--use-supervisor`: Use Agent Supervisor pattern for advanced coordination
 
 ## 📊 **System Architecture**
 

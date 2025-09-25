@@ -78,16 +78,20 @@ if [[ "$LANGUAGE" != "en" && "$LANGUAGE" != "es" ]]; then
 fi
 
 # Show configuration
-echo -e "\n${GREEN}=== Configuration ===${NC}"
+echo -e "\n${GREEN}=== AI-Parrot Configuration ===${NC}"
 echo -e "Language: ${YELLOW}${LANGUAGE}${NC}"
 echo -e "Voice:    ${YELLOW}${VOICE}${NC}"
+echo -e "\n${GREEN}Enterprise AI Agent Patterns:${NC}"
+echo -e "🤝 A2A Collaborative Assessment"
+echo -e "🏛️ Agent Supervisor Coordination"
+echo -e "🔗 MCP Integration with SSE Transport"
+echo -e "🔄 Circuit Breaker Resilience"
+echo -e "👁️ Observer Pattern Monitoring"
 
-# Run the podcast generator with the specified language and voice
-echo -e "\n${GREEN}Starting podcast generation...${NC}"
-echo -e "Language: ${YELLOW}${LANGUAGE}${NC}"
-echo -e "Voice:    ${YELLOW}${VOICE}${NC}"
+# Run the podcast generator
+echo -e "\n${GREEN}🚀 Starting AI-Parrot Enterprise System...${NC}"
 
-# Run the podcast generator with the specified parameters
+# Run the podcast generator with full AI Agent Patterns (A2A + Supervisor always enabled)
 python -m podcast_generator.main --language "$LANGUAGE" --voice "$VOICE"
 EXIT_CODE=$?
 
