@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/ai-parrot-logo.png" alt="AI-Parrot logo" width="320" />
+</p>
+
 # 🎓 Guía Educativa de Patrones de Agentes IA
 
 ## 📚 **Ruta de Aprendizaje: De Principiante a Experto**
