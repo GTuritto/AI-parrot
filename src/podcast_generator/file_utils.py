@@ -16,14 +16,11 @@ Example:
     >>> await file_manager.save_mp3_file("Hello, world!", voice_name="Sarah")
 """
 import os
-import json
-import csv
 import asyncio
 import random
 import re
 from datetime import datetime
-from pathlib import Path
-from typing import List, Dict, Any, Optional, Union, Literal
+from typing import Literal
 from elevenlabs.client import ElevenLabs
 from .translator import Translator
 from utils.env import APIKeys
@@ -76,35 +73,6 @@ class FileManager:
         """
         return os.path.join(self.output_dir, filename)
     
-    async def save_article_data(self, articles: List[Dict[str, Any]]) -> str:
-        """Save article data to a CSV file.
-        
-        Args:
-            articles: List of article dictionaries.
-            
-        Returns:
-            Path to the saved CSV file.
-        """
-        if not articles:
-            return ""
-            
-        # Generate filename with current date
-        date_str = datetime.now().strftime("%Y%m%d")
-        filename = f"podcast_articles_{date_str}.csv"
-        filepath = self.get_output_path(filename)
-        
-        # Extract field names from the first article
-        fieldnames = list(articles[0].keys())
-        
-        # Write to CSV
-        with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
-            for article in articles:
-                writer.writerow(article)
-                
-        return filepath
-    
     async def save_narrative_file(
         self, 
         content: str, 
@@ -129,21 +97,6 @@ class FileManager:
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(content)
             
-        return filepath
-    
-    async def save_to_file(self, content: str, filename: str) -> str:
-        """Save content to a file.
-        
-        Args:
-            content: Content to save.
-            filename: Name of the file.
-            
-        Returns:
-            Path to the saved file.
-        """
-        filepath = self.get_output_path(filename)
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(content)
         return filepath
     
     def _get_voice_id(self, voice_name: str) -> str:
@@ -319,32 +272,6 @@ class FileManager:
         print(error_msg)
         raise Exception(error_msg)
     
-    def save_articles_to_csv(self, articles: List[Dict[str, Any]]) -> str:
-        """Save articles to a CSV file.
-        
-        Args:
-            articles: List of article dictionaries.
-            
-        Returns:
-            Path to the saved CSV file.
-        """
-        file_path = self.get_file_path("csv")
-        
-        headers = ["Title", "Summary", "Link"]
-        
-        with open(file_path, mode="w", newline="", encoding="utf-8") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=headers)
-            writer.writeheader()
-            
-            for article in articles:
-                writer.writerow({
-                    "Title": article["title"],
-                    "Summary": article.get("summary", "Summary not available"),
-                    "Link": article["link"]
-                })
-        
-        return file_path
-    
     def _add_intro_outro(self, content: str, language: str) -> str:
         """Add intro and outro to the podcast content.
         
@@ -376,77 +303,3 @@ class FileManager:
         
         return f"{intro} {content} {outro}"
         
-    def _clean_podcast_script(self, script: str) -> str:
-        """Clean and format the podcast script for natural reading.
-        
-        Args:
-            script: The original podcast script.
-            
-        Returns:
-            Cleaned narrative text ready for TTS.
-        """
-        import re
-        
-        # Remove any introductory phrases that might have been added by the AI
-        script = re.sub(
-            r'^(Here(?:''s| is) the (?:revised )?(?:podcast )?script:?|'
-            r'Let me (?:create|write) (?:a|the) (?:podcast )?script (?:for you|now):?|'
-            r'\*\*[^*]+\*\:?\s*|'
-            r'^---\s*)',
-            '', 
-            script, 
-            flags=re.IGNORECASE | re.MULTILINE
-        )
-        
-        # Remove any remaining timestamps, section markers, or special formatting
-        script = re.sub(r'\b(?:\d{1,2}:\d{2}(?::\d{2})?|\[.*?\]|\*\*[^*]+\*\*|##+\s*|\*\s*|_|~~|`)\s*', ' ', script)
-        
-        # Normalize all whitespace and handle em dashes
-        script = ' '.join(script.split())
-        script = re.sub(r'--+', '—', script)  # Convert multiple dashes to em dash
-        
-        # Split into sentences and clean each one
-        sentences = []
-        for sentence in re.split(r'([.!?]\s*)', script):
-            sentence = sentence.strip()
-            if not sentence:
-                continue
-                
-            # Capitalize the first letter of each sentence
-            if sentence and sentence[0].isalpha() and sentence[0].islower():
-                sentence = sentence[0].upper() + sentence[1:]
-                
-            sentences.append(sentence)
-        
-        # Join sentences back together
-        cleaned_text = ''.join(sentences)
-        
-        # Add paragraph breaks after sentences that end a complete thought
-        cleaned_text = re.sub(r'([.!?])(\s+[A-Z])', '\1\n\n\2', cleaned_text)
-        
-        # Clean up any remaining artifacts
-        cleaned_text = re.sub(r'\s+', ' ', cleaned_text)  # Normalize spaces
-        cleaned_text = re.sub(r'\n\s*\n', '\n\n', cleaned_text)  # Normalize newlines
-        cleaned_text = re.sub(r'\s+([.,!?])', '\1', cleaned_text)  # Remove spaces before punctuation
-        cleaned_text = re.sub(r'([.!?])\s+', '\1 ', cleaned_text)  # Single space after sentence endings
-        cleaned_text = re.sub(r'\s*—\s*', ' — ', cleaned_text)  # Add spaces around em dashes
-        
-        # Ensure proper capitalization at the start of paragraphs
-        paragraphs = []
-        for para in cleaned_text.split('\n\n'):
-            para = para.strip()
-            if not para:
-                continue
-                
-            # Capitalize first letter of each paragraph
-            if para and para[0].isalpha() and para[0].islower():
-                para = para[0].upper() + para[1:]
-                
-            # Ensure the paragraph ends with punctuation
-            if para and para[-1] not in '.!?':
-                para += '.'
-                
-            paragraphs.append(para)
-        
-        # Join with double newlines between paragraphs
-        return '\n\n'.join(paragraphs)

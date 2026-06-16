@@ -48,7 +48,7 @@ other large-scale distributed systems.
 """
 import asyncio
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Callable, Any, Optional, Dict
 from dataclasses import dataclass
 from enum import Enum
@@ -293,7 +293,7 @@ class ResilientOperations:
         # Save as text file instead of audio
         text_path = file_manager.get_output_path("fallback_podcast.txt")
         with open(text_path, 'w', encoding='utf-8') as f:
-            f.write(f"PODCAST TRANSCRIPT (Audio generation unavailable)\n")
+            f.write("PODCAST TRANSCRIPT (Audio generation unavailable)\n")
             f.write(f"Generated: {datetime.now().isoformat()}\n\n")
             f.write(text_content)
         

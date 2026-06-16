@@ -1,5 +1,4 @@
 """Module for handling text translation."""
-from typing import Optional
 import os
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
@@ -42,14 +41,3 @@ class Translator:
         
         response = await self.model.ainvoke(messages)
         return response.content
-
-    def batch_translate(self, texts: list[str]) -> list[str]:
-        """Translate a list of texts to Spanish.
-        
-        Args:
-            texts: List of texts to translate.
-            
-        Returns:
-            List of translated texts.
-        """
-        return [self.translate_to_spanish(text) for text in texts]

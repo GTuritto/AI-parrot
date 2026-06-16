@@ -33,11 +33,25 @@
 pip install -r requirements.txt
 pip install -r requirements-api.txt
 
-# Run the API server
-uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+# Run the API server on localhost
+uvicorn api.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ## 📋 **API Endpoints**
+
+### **🔐 Optional Authentication**
+
+By default, local development does not require an API token. If you set `AI_PARROT_API_TOKEN`, protected endpoints require one of these headers:
+
+```http
+Authorization: Bearer your_token
+```
+
+```http
+X-API-Key: your_token
+```
+
+Use this for non-local deployments. It protects endpoints that can spend API credits, expose logs, list files, download outputs, or inspect memory state. Health checks remain open so Docker and uptime monitors can work without a secret.
 
 ### **🏠 Root Endpoint**
 ```http
@@ -88,8 +102,16 @@ Returns system health status and API key validation.
 ### **🎙️ Generate Podcast**
 ```http
 POST /generate
+POST /api/generate
 ```
-Generates a podcast using the enterprise AI agent system.
+Queues a podcast generation task and returns immediately.
+
+Podcast generation calls external RSS/MCP services, LLMs, translation, and text-to-speech. The API therefore uses a task workflow:
+
+1. Submit `POST /generate` or `POST /api/generate`.
+2. Read the returned `task_id`.
+3. Poll `GET /tasks/{task_id}` or `GET /api/tasks/{task_id}` until the task is `completed` or `failed`.
+4. Download the generated file from `/download/{filename}`.
 
 **Request Body:**
 ```json
@@ -103,26 +125,54 @@ Generates a podcast using the enterprise AI agent system.
 - `language` (string): "en" for English, "es" for Spanish
 - `voice` (string): ElevenLabs voice name (e.g., "Aria", "Sarah", "Lily")
 
-**Response:**
+**Queued Response (`202 Accepted`):**
 ```json
 {
   "success": true,
-  "message": "Podcast generated successfully with enterprise AI agent patterns",
-  "audio_path": "PodcastOutput/podcast_20250925_065140.mp3",
-  "articles_processed": 15,
-  "tasks_completed": 4,
-  "a2a_quality_score": 0.92,
-  "system_status": {
-    "system_health": "healthy",
-    "active_agents": 4
+  "message": "Podcast generation queued",
+  "task_id": "8d6f68b8-6c1a-4b72-a6db-0cbb24a2a1d0"
+}
+```
+
+### **⏳ Task Status**
+```http
+GET /tasks/{task_id}
+GET /api/tasks/{task_id}
+```
+Returns the current state of a queued podcast generation task.
+
+**States:**
+- `queued`: The API accepted the request and has not started work yet.
+- `running`: Agents are fetching, summarizing, scripting, translating, or generating audio.
+- `completed`: The task finished and `result` contains the output metadata.
+- `failed`: The task failed and `error` explains why.
+
+**Completed Response:**
+```json
+{
+  "task_id": "8d6f68b8-6c1a-4b72-a6db-0cbb24a2a1d0",
+  "status": "completed",
+  "created_at": "2026-06-16T18:30:00",
+  "updated_at": "2026-06-16T18:31:15",
+  "request": {
+    "language": "en",
+    "voice": "Aria"
   },
-  "generation_time": 45.3
+  "result": {
+    "success": true,
+    "audio_path": "PodcastOutput/podcast_20260616_183115_Aria_en.mp3",
+    "articles_processed": 15,
+    "tasks_completed": 4,
+    "generation_time": 75.3
+  },
+  "error": null
 }
 ```
 
 ### **📁 List Files**
 ```http
 GET /files
+GET /api/files
 ```
 Lists all generated podcast files.
 
@@ -135,7 +185,7 @@ Lists all generated podcast files.
       "size": 2457600,
       "created": "2025-09-25T06:51:40",
       "modified": "2025-09-25T06:52:25",
-      "download_url": "/download/podcast_20250925_065140.mp3"
+      "download_url": "/download/podcast_20260616_183115_Aria_en.mp3"
     }
   ]
 }
@@ -144,6 +194,7 @@ Lists all generated podcast files.
 ### **📥 Download File**
 ```http
 GET /download/{filename}
+GET /api/download/{filename}
 ```
 Downloads a generated podcast file.
 
@@ -155,6 +206,7 @@ Downloads a generated podcast file.
 ### **📊 System Status**
 ```http
 GET /status
+GET /api/status
 ```
 Returns detailed system status and metrics.
 
@@ -193,21 +245,20 @@ Returns detailed system status and metrics.
 # Health check
 curl -X GET "http://localhost:8000/health"
 
-# Generate English podcast
-curl -X POST "http://localhost:8000/generate" \
+# Queue an English podcast
+TASK_ID=$(curl -s -X POST "http://localhost:8000/api/generate" \
   -H "Content-Type: application/json" \
-  -d '{"language": "en", "voice": "Aria"}'
+  -d '{"language": "en", "voice": "Aria"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['task_id'])")
 
-# Generate Spanish podcast
-curl -X POST "http://localhost:8000/generate" \
-  -H "Content-Type: application/json" \
-  -d '{"language": "es", "voice": "Sarah"}'
+# Poll until status is completed or failed
+curl -X GET "http://localhost:8000/api/tasks/${TASK_ID}"
 
 # List generated files
-curl -X GET "http://localhost:8000/files"
+curl -X GET "http://localhost:8000/api/files"
 
 # Download a podcast
-curl -X GET "http://localhost:8000/download/podcast_20250925_065140.mp3" \
+curl -X GET "http://localhost:8000/api/download/podcast_20260616_183115_Aria_en.mp3" \
   --output podcast.mp3
 ```
 
@@ -215,22 +266,46 @@ curl -X GET "http://localhost:8000/download/podcast_20250925_065140.mp3" \
 
 ```python
 import requests
-import json
+import time
+import os
 
 # API base URL
 BASE_URL = "http://localhost:8000"
+HEADERS = {}
+if os.getenv("AI_PARROT_API_TOKEN"):
+    HEADERS["Authorization"] = f"Bearer {os.environ['AI_PARROT_API_TOKEN']}"
 
 def generate_podcast(language="en", voice="Aria"):
-    """Generate a podcast using the API."""
+    """Queue a podcast and wait for completion."""
     response = requests.post(
-        f"{BASE_URL}/generate",
-        json={"language": language, "voice": voice}
+        f"{BASE_URL}/api/generate",
+        json={"language": language, "voice": voice},
+        headers=HEADERS,
+        timeout=30,
     )
-    return response.json()
+    response.raise_for_status()
+    task_id = response.json()["task_id"]
+
+    while True:
+        task_response = requests.get(
+            f"{BASE_URL}/api/tasks/{task_id}",
+            headers=HEADERS,
+            timeout=10,
+        )
+        task_response.raise_for_status()
+        task = task_response.json()
+
+        if task["status"] == "completed":
+            return task["result"]
+        if task["status"] == "failed":
+            raise RuntimeError(task["error"])
+
+        time.sleep(5)
 
 def download_podcast(filename, output_path):
     """Download a generated podcast."""
-    response = requests.get(f"{BASE_URL}/download/{filename}")
+    response = requests.get(f"{BASE_URL}/api/download/{filename}", headers=HEADERS)
+    response.raise_for_status()
     with open(output_path, 'wb') as f:
         f.write(response.content)
 
@@ -238,7 +313,6 @@ def download_podcast(filename, output_path):
 result = generate_podcast("en", "Aria")
 if result["success"]:
     print(f"Podcast generated: {result['audio_path']}")
-    print(f"A2A Quality Score: {result['a2a_quality_score']}")
 ```
 
 ### **JavaScript/Node.js Example**
@@ -247,14 +321,29 @@ if result["success"]:
 const axios = require('axios');
 
 const BASE_URL = 'http://localhost:8000';
+const HEADERS = process.env.AI_PARROT_API_TOKEN
+  ? { Authorization: `Bearer ${process.env.AI_PARROT_API_TOKEN}` }
+  : {};
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 async function generatePodcast(language = 'en', voice = 'Aria') {
   try {
-    const response = await axios.post(`${BASE_URL}/generate`, {
-      language,
-      voice
-    });
-    return response.data;
+    const queued = await axios.post(
+      `${BASE_URL}/api/generate`,
+      { language, voice },
+      { headers: HEADERS }
+    );
+
+    const taskId = queued.data.task_id;
+    while (true) {
+      const task = await axios.get(`${BASE_URL}/api/tasks/${taskId}`, { headers: HEADERS });
+      if (task.data.status === 'completed') return task.data.result;
+      if (task.data.status === 'failed') throw new Error(task.data.error);
+      await sleep(5000);
+    }
   } catch (error) {
     console.error('Error generating podcast:', error.response?.data);
     throw error;
@@ -265,7 +354,6 @@ async function generatePodcast(language = 'en', voice = 'Aria') {
 generatePodcast('en', 'Aria')
   .then(result => {
     console.log('Podcast generated:', result.audio_path);
-    console.log('A2A Quality Score:', result.a2a_quality_score);
   })
   .catch(console.error);
 ```
@@ -277,11 +365,12 @@ generatePodcast('en', 'Aria')
 ```env
 # Required API Keys
 ANTHROPIC_API_KEY=your_anthropic_key_here
-ELEVEN_API_KEY=your_elevenlabs_key_here
+ELEVENLABS_API_KEY=your_elevenlabs_key_here
 
 # Optional API Keys
 OPENAI_API_KEY=your_openai_key_here
 NEWS_API_KEY=your_news_api_key_here
+AI_PARROT_API_TOKEN=change_me_for_non_local_deployments
 
 # MCP Server Configuration
 MCP_SERVER_URL=http://localhost:3002/mcp
@@ -298,14 +387,14 @@ LOG_LEVEL=INFO
 # Build the image
 docker build -t ai-parrot-enterprise .
 
-# Run the container
-docker run -p 8000:8000 --env-file .env ai-parrot-enterprise
+# Run the container on localhost
+docker run -p 127.0.0.1:8000:8000 --env-file .env ai-parrot-enterprise
 
 # Run with docker-compose
 docker-compose up --build
 
 # View logs
-docker-compose logs -f ai-parrot
+docker-compose logs -f ai-parrot-api
 
 # Stop the service
 docker-compose down
@@ -316,15 +405,16 @@ docker-compose down
 1. **API Keys**: Never commit API keys to version control
 2. **Environment**: Use `.env` files or environment variables
 3. **Network**: Consider running behind a reverse proxy (nginx)
-4. **Authentication**: Add API authentication for production use
+4. **Authentication**: Set `AI_PARROT_API_TOKEN` for non-local deployments
 5. **Rate Limiting**: Implement rate limiting for production deployments
 
 ## 📈 **Monitoring**
 
 The API provides several monitoring endpoints:
 
-- `/health` - Basic health check
-- `/status` - Detailed system status
+- `/health` or `/api/health` - Basic health check
+- `/status` or `/api/status` - Detailed system status
+- `/tasks/{task_id}` or `/api/tasks/{task_id}` - Podcast generation progress
 - Container health checks via Docker
 
 ## 🚀 **Production Deployment**

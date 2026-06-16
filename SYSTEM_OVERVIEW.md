@@ -6,7 +6,7 @@
 
 ## 🏗️ **Core Architecture**
 
-AI-Parrot is built from the ground up with **Enterprise AI Agent Patterns** as the fundamental system design. This isn't a podcast generator with optional AI features - it's an enterprise-grade multi-agent system that happens to generate podcasts.
+AI-Parrot is built from the ground up with **Enterprise AI Agent Patterns** as the fundamental system design. It is a production-inspired educational system: the code demonstrates real architectural patterns in a concrete podcast workflow, while keeping the project small enough to study.
 
 ## 🤖 **Built-in Enterprise Patterns**
 
@@ -49,11 +49,32 @@ docker-compose up --build
 # Local API server
 ./run_api.sh
 
-# API endpoints
-curl -X POST "http://localhost:8000/generate" \
+# Queue a podcast generation task
+TASK_ID=$(curl -s -X POST "http://localhost:8000/api/generate" \
   -H "Content-Type: application/json" \
-  -d '{"language": "en", "voice": "Aria"}'
+  -d '{"language": "en", "voice": "Aria"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['task_id'])")
+
+# Poll task progress
+curl -X GET "http://localhost:8000/api/tasks/${TASK_ID}"
 ```
+
+The API uses task polling because generation is long-running. A request starts content fetching, article assessment, LLM summarization, script generation, translation when needed, and text-to-speech audio creation. Polling keeps the HTTP request short and gives clients a clear status model.
+
+### **🧭 Request Flow**
+
+```mermaid
+flowchart LR
+    A["API"] --> B["Queued Task"]
+    B --> C["Supervisor"]
+    C --> D["Specialized Agents"]
+    D --> E["MCP/RSS Content Sources"]
+    E --> F["LLM Summaries and Script"]
+    F --> G["TTS Audio Generation"]
+    G --> H["Output Files"]
+```
+
+This flow is the main learning artifact. Each box maps to a module or pattern, so you can trace the system from HTTP request to generated audio.
 
 ### **💻 Command Line Interface**
 ```bash
@@ -96,11 +117,12 @@ The system requires only essential configuration:
 ```env
 # Required
 ANTHROPIC_API_KEY=your_key_here
-ELEVEN_API_KEY=your_key_here
+ELEVENLABS_API_KEY=your_key_here
 
 # Optional
 OPENAI_API_KEY=your_key_here
 NEWS_API_KEY=your_key_here
+AI_PARROT_API_TOKEN=change_me_for_non_local_deployments
 
 # MCP Server (pre-configured)
 MCP_SERVER_URL=http://localhost:3002/mcp
@@ -110,18 +132,30 @@ MCP_SSE_URL=http://localhost:3002/sse
 ## 🎓 **Educational Value**
 
 This system serves as a comprehensive demonstration of:
-- Production-ready multi-agent coordination
+- Production-inspired multi-agent coordination
 - Enterprise AI architecture patterns
 - Real-world distributed system design
 - Advanced LLM orchestration techniques
 - Resilient system engineering
+
+## 🧪 **Suggested Exercises**
+
+1. Supervisor pattern: add a new observer that records task durations, then extend `tests/test_agent_supervisor.py`.
+2. MCP/RSS pattern: add one RSS feed and compare article selection, then extend `tests/test_mcp_rss_fetching.py`.
+3. A2A pattern: change the confidence weighting formula, then update `tests/test_a2a_protocol.py`.
+4. Resilience pattern: add a half-open recovery case, then extend `tests/test_circuit_breaker.py`.
+5. API pattern: add a task progress field to the API response, then add a contract test.
+
+## ⚠️ **Production Boundaries**
+
+AI-Parrot demonstrates production patterns, but it is not a finished production platform. Production deployment should add Redis or database-backed task state, stronger authentication and authorization, rate limits, centralized observability, background queues, worker processes, retry policies, dead-letter handling, deployment-specific secrets, scaling, and monitoring. The current implementation keeps these concerns visible but intentionally small for learning.
 
 ## 🌟 **Key Differentiators**
 
 1. **Enterprise-First Design**: Built with production patterns from day one
 2. **No Optional Modes**: Full AI agent coordination is the only mode
 3. **Educational Platform**: Comprehensive learning resource for AI patterns
-4. **Production Ready**: Circuit breakers, monitoring, and fault tolerance
+4. **Production-Inspired**: Circuit breakers, monitoring, and fault tolerance
 5. **Clean Interface**: Simple command-line with powerful backend
 
 ---

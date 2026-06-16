@@ -8,16 +8,13 @@ import streamlit as st
 import asyncio
 import os
 import sys
-import json
 import time
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict
 import requests
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 # Add project root to path
 project_root = Path(__file__).parent
@@ -25,7 +22,7 @@ sys.path.insert(0, str(project_root / "src"))
 
 # Import our modules
 from podcast_generator.langgraph_workflow import run_podcast_workflow
-from utils.env import validate_api_keys, load_env_vars
+from utils.env import load_env_vars
 
 def api_headers() -> Dict[str, str]:
     """Return API auth headers when a local token is configured."""
@@ -188,7 +185,7 @@ async def generate_podcast_async(language: str, voice: str):
             return {"success": False, "error": "Podcast generation timed out", "task_id": task_id}
         else:
             return {"success": False, "error": f"API Error: {response.status_code}"}
-    except requests.exceptions.RequestException as e:
+    except requests.exceptions.RequestException:
         # Fallback to direct function call if API is not available
         try:
             await run_podcast_workflow(language=language, voice_name=voice)
@@ -245,7 +242,6 @@ def create_monitoring_dashboard():
     st.subheader("📊 System Monitoring")
     
     # Get system data
-    system_status = get_system_status()
     api_health = get_api_health()
     files = get_podcast_files()
     

@@ -1,5 +1,5 @@
 """AI processing module for podcast generation."""
-from typing import Dict, List, Any, Optional, Tuple, Literal
+from typing import Dict, List, Any, Literal
 from datetime import datetime
 
 from langchain_anthropic import ChatAnthropic
@@ -8,7 +8,7 @@ from langchain.schema.messages import HumanMessage, SystemMessage
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from utils.env import APIKeys
-from podcast_generator.memory_system import MemoryManager, MemoryType
+from podcast_generator.memory_system import MemoryManager
 
 # Define model types for type hints
 ModelType = Literal["claude-haiku", "claude-sonnet", "claude-opus", "gpt-4"]
@@ -77,95 +77,6 @@ class AIProcessor:
                 **common_params
             )
     
-    def rank_articles_by_relevance(
-        self, articles: List[Dict[str, Any]], keywords: List[str]
-    ) -> List[Dict[str, Any]]:
-        """Rank articles by relevance to keywords.
-        
-        Args:
-            articles: List of article dictionaries.
-            keywords: List of keywords to rank articles by.
-            
-        Returns:
-            Ranked list of articles with relevance scores.
-        """
-        if not articles:
-            return []
-            
-        content = "\n\n".join([
-            f"Article:\n{article['title']}: {article.get('description', '')}\n" 
-            for article in articles
-        ])
-        keywords_str = ", ".join(keywords)
-        
-        prompt = (
-            f"Rate the relevance of the following articles based on these keywords: {keywords_str}. "
-            f"For each article, provide a score between 1 and 10.\n\n{content}"
-        )
-        
-        try:
-            # Get relevance scores from Claude Haiku (fast and cost-effective)
-            llm = self._get_llm("claude-haiku")
-            messages = [
-                SystemMessage(content="You are an AI assistant that rates article relevance. Respond with only the scores, one per line."),
-                HumanMessage(content=prompt)
-            ]
-            response = llm.invoke(messages)
-            relevance_scores = [
-                int(score.strip()) 
-                for score in response.content.splitlines() 
-                if score.strip().isdigit()
-            ]
-            
-            # Calculate final scores
-            ranked_articles = self._calculate_final_scores(articles, relevance_scores)
-            return ranked_articles
-            
-        except Exception as e:
-            print(f"Error during ranking: {e}")
-            # Return original articles if ranking fails
-            return articles
-    
-    def _calculate_final_scores(
-        self, articles: List[Dict[str, Any]], relevance_scores: List[int]
-    ) -> List[Dict[str, Any]]:
-        """Calculate final scores for articles based on recency and relevance.
-        
-        Args:
-            articles: List of article dictionaries.
-            relevance_scores: List of relevance scores from AI.
-            
-        Returns:
-            List of articles with final scores.
-        """
-        # Define the weights for recency and relevance
-        recency_weight = 0.5
-        relevance_weight = 0.5
-        max_days_old = 14  # Two-week range
-
-        current_time = datetime.now()
-        
-        result = []
-        for i, article in enumerate(articles):
-            article_copy = article.copy()  # Create a copy to avoid modifying the original
-            
-            published = article_copy['published']
-            days_old = (current_time - published).days
-            recency_score = max(0, 1 - days_old / max_days_old)
-            
-            # Get relevance score, or 0 if no score was assigned
-            relevance_score = relevance_scores[i] if i < len(relevance_scores) else 0
-            
-            # Calculate final score
-            final_score = (recency_weight * recency_score) + (relevance_weight * (relevance_score / 10)) + 0.05
-            
-            # Store the final score in the article dictionary
-            article_copy['final_score'] = final_score
-            result.append(article_copy)
-        
-        # Sort articles by final score in descending order (highest score first)
-        return sorted(result, key=lambda x: x['final_score'], reverse=True)
-    
     def summarize_article(self, article: Dict[str, Any], max_retries: int = 3) -> str:
         """Summarize an article using Claude AI with memory-enhanced context.
         
@@ -178,9 +89,6 @@ class AIProcessor:
         """
         # Store article in memory for context
         self.memory.store_article(article, importance=0.7)
-        
-        # Get relevant context from memory
-        context = self.memory.get_relevant_context([article], limit=3)
         
         content = f"{article['title']}: {article.get('description', '')}"
         system_prompt = """You are a helpful AI assistant that summarizes articles about artificial intelligence. 
@@ -392,7 +300,3 @@ Return ONLY the revised script with NO additional commentary or explanations."""
         except Exception as e:
             print(f"Error revising podcast script: {e}")
             return script  # Return the original script if revision fails
-
-
-# Add this import at the top of the file
-from datetime import datetime

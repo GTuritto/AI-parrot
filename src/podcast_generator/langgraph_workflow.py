@@ -1,11 +1,9 @@
 """LangGraph workflow for podcast generation with AI Agent Patterns."""
-import asyncio
-from typing import TypedDict, List, Dict, Any, Tuple
+from typing import TypedDict, List, Dict, Any
 
 from langgraph.graph import StateGraph, END
 
 from podcast_generator.article_fetcher import fetch_multiple_sources
-from podcast_generator.config_loader import get_config_loader
 from podcast_generator.ai_processor import AIProcessor
 from podcast_generator.file_utils import FileManager
 from podcast_generator.a2a_protocol import enhance_articles_with_a2a
@@ -295,7 +293,7 @@ async def run_podcast_workflow_with_patterns(
     Returns:
         Workflow execution results.
     """
-    print(f"\n🤖 Starting AI Agent Pattern Workflow")
+    print("\n🤖 Starting AI Agent Pattern Workflow")
     print(f"   Language: {language}")
     print(f"   Voice: {voice_name}")
     print(f"   A2A Protocol: {'Enabled' if enable_a2a else 'Disabled'}")

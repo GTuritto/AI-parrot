@@ -9,7 +9,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from podcast_generator.langgraph_workflow import run_podcast_workflow, run_podcast_workflow_with_patterns
+from podcast_generator.langgraph_workflow import run_podcast_workflow_with_patterns
 from utils.env import validate_api_keys, load_env_vars
 
 
@@ -61,12 +61,6 @@ async def main(
         print("\nPlease add the missing API keys and try again.")
         return
     
-    # Check for optional API keys
-    optional_keys = {
-        "OPENAI_API_KEY": "GPT-4 will be used for script refinement if available, otherwise Claude Sonnet will be used",
-        "NEWS_API_KEY": "Using RSS feeds only (no News API functionality)"
-    }
-    
     print("\nAPI Key Status:")
     print(f"- Anthropic API: {'✅ Available' if os.getenv('ANTHROPIC_API_KEY') else '❌ Missing (Required)'}")
     print(f"- OpenAI API: {'✅ Available' if os.getenv('OPENAI_API_KEY') else '⚠️  Missing (Optional)'}")
@@ -88,7 +82,7 @@ async def main(
         )
         
         if result.get("success"):
-            print(f"\n🎉 Podcast generated successfully!")
+            print("\n🎉 Podcast generated successfully!")
             print(f"   🎵 Audio: {result.get('audio_path')}")
             print(f"   📰 Articles: {result.get('articles_processed')}")
             print(f"   ✅ Tasks: {result.get('tasks_completed', 'N/A')}")

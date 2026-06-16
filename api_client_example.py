@@ -7,10 +7,8 @@ to generate podcasts using the enterprise AI agent patterns.
 """
 
 import requests
-import json
 import time
 import os
-from pathlib import Path
 from typing import Dict, Any, Optional
 
 class AIParrotClient:

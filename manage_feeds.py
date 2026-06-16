@@ -141,12 +141,12 @@ def show_config():
     print("⚙️  Current Configuration")
     print("=" * 50)
     
-    print(f"\n📅 Content Filters:")
+    print("\n📅 Content Filters:")
     print(f"   Date Range: {filter_config.date_range_days} days")
     print(f"   Min Content Length: {filter_config.min_content_length} chars")
     print(f"   Keywords: {len(filter_config.keywords)} configured")
     
-    print(f"\n🔧 Fetching Config:")
+    print("\n🔧 Fetching Config:")
     print(f"   Concurrent Requests: {fetch_config.concurrent_requests}")
     print(f"   Timeout: {fetch_config.timeout_seconds}s")
     print(f"   Retry Attempts: {fetch_config.retry_attempts}")

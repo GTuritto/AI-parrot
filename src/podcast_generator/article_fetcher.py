@@ -28,7 +28,7 @@ from typing import Dict, List, Any, Optional
 import feedparser
 import aiohttp
 
-from podcast_generator.mcp_client import MCPClient, MCPArticle
+from podcast_generator.mcp_client import MCPClient
 from podcast_generator.config_loader import get_config_loader, RSSFeedConfig
 
 # Configure logging

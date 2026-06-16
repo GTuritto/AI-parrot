@@ -6,7 +6,7 @@
 
 ## 🏗️ **Arquitectura Central**
 
-AI-Parrot está construido desde cero con **Patrones de Agentes IA Empresariales** como el diseño fundamental del sistema. Esto no es un generador de podcasts con características IA opcionales - es un sistema multi-agente de nivel empresarial que genera podcasts.
+AI-Parrot está construido desde cero con **Patrones de Agentes IA Empresariales** como diseño fundamental del sistema. Es un sistema educativo inspirado en producción: el código demuestra patrones arquitectónicos reales en un flujo concreto de podcast, manteniendo el proyecto lo bastante pequeño para estudiarlo.
 
 ## 🤖 **Patrones Empresariales Integrados**
 
@@ -49,11 +49,32 @@ docker-compose up --build
 # Servidor API local
 ./run_api.sh
 
-# Endpoints API
-curl -X POST "http://localhost:8000/generate" \
+# Encolar una tarea de generación
+TASK_ID=$(curl -s -X POST "http://localhost:8000/api/generate" \
   -H "Content-Type: application/json" \
-  -d '{"language": "es", "voice": "Sarah"}'
+  -d '{"language": "es", "voice": "Sarah"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['task_id'])")
+
+# Consultar progreso de la tarea
+curl -X GET "http://localhost:8000/api/tasks/${TASK_ID}"
 ```
+
+La API usa consulta por tareas porque la generación tarda más que una solicitud HTTP normal. Una generación obtiene contenido, evalúa artículos, resume con LLMs, crea el guion, traduce cuando hace falta y genera audio con texto a voz. El modelo por tareas mantiene corta la solicitud inicial y da a los clientes estados claros.
+
+### **🧭 Flujo de Solicitud**
+
+```mermaid
+flowchart LR
+    A["API"] --> B["Tarea Encolada"]
+    B --> C["Supervisor"]
+    C --> D["Agentes Especializados"]
+    D --> E["Fuentes MCP/RSS"]
+    E --> F["Resúmenes y Guion LLM"]
+    F --> G["Generación de Audio TTS"]
+    G --> H["Archivos de Salida"]
+```
+
+Este flujo es el artefacto principal de aprendizaje. Cada caja se relaciona con un módulo o patrón, así puedes seguir el sistema desde la solicitud HTTP hasta el audio generado.
 
 ### **💻 Interfaz de Línea de Comandos**
 ```bash
@@ -96,11 +117,12 @@ El sistema requiere solo configuración esencial:
 ```env
 # Requeridas
 ANTHROPIC_API_KEY=tu_clave_aqui
-ELEVEN_API_KEY=tu_clave_aqui
+ELEVENLABS_API_KEY=tu_clave_aqui
 
 # Opcionales
 OPENAI_API_KEY=tu_clave_aqui
 NEWS_API_KEY=tu_clave_aqui
+AI_PARROT_API_TOKEN=cambia_esto_para_despliegues_no_locales
 
 # Servidor MCP (pre-configurado)
 MCP_SERVER_URL=http://localhost:3002/mcp
@@ -122,18 +144,30 @@ La integración MCP demuestra patrones de obtención de contenido de nivel empre
 ## 🎓 **Valor Educativo**
 
 Este sistema sirve como una demostración integral de:
-- Coordinación multi-agente lista para producción
+- Coordinación multi-agente inspirada en producción
 - Patrones de arquitectura IA empresarial
 - Diseño de sistemas distribuidos del mundo real
 - Técnicas avanzadas de orquestación LLM
 - Ingeniería de sistemas resistentes
+
+## 🧪 **Ejercicios Sugeridos**
+
+1. Patrón supervisor: añade un observer que registre duración de tareas y extiende `tests/test_agent_supervisor.py`.
+2. Patrón MCP/RSS: añade un feed RSS y compara selección de artículos, luego extiende `tests/test_mcp_rss_fetching.py`.
+3. Patrón A2A: cambia la fórmula de peso por confianza y actualiza `tests/test_a2a_protocol.py`.
+4. Patrón de resiliencia: añade un caso de recuperación half-open y extiende `tests/test_circuit_breaker.py`.
+5. Patrón API: añade un campo de progreso a la respuesta de tarea y agrega una prueba de contrato.
+
+## ⚠️ **Límites de Producción**
+
+AI-Parrot demuestra patrones de producción, pero no es una plataforma de producción terminada. Un despliegue real debería añadir estado de tareas en Redis o base de datos, autenticación y autorización más fuertes, rate limits, observabilidad centralizada, colas en segundo plano, procesos worker, políticas de reintento, manejo de tareas muertas, secretos específicos del entorno, escalado y monitoreo. La implementación actual mantiene estas preocupaciones visibles, pero pequeñas, para facilitar el aprendizaje.
 
 ## 🌟 **Diferenciadores Clave**
 
 1. **Diseño Empresarial Primero**: Construido con patrones de producción desde el día uno
 2. **Sin Modos Opcionales**: La coordinación completa de agentes IA es el único modo
 3. **Plataforma Educativa**: Recurso de aprendizaje integral para patrones IA
-4. **Listo para Producción**: Circuit breakers, monitoreo y tolerancia a fallos
+4. **Inspirado en Producción**: Circuit breakers, monitoreo y tolerancia a fallos
 5. **Interfaz Limpia**: Línea de comandos simple con backend poderoso
 
 ---

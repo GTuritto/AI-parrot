@@ -22,7 +22,6 @@ This module implements the Configuration Pattern:
 """
 
 import json
-import os
 import logging
 from pathlib import Path
 from typing import Dict, List, Any, Optional

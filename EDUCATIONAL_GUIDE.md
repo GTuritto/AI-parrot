@@ -8,6 +8,32 @@
 
 This guide provides a structured learning path through the AI Agent Patterns implemented in the AI-Parrot project. Each section builds upon previous concepts, making it perfect for educational purposes.
 
+AI-Parrot is an educational system with production-inspired patterns. Treat the code as a working map of agent concepts, not as a finished production platform. The best way to learn from it is to run one podcast generation, inspect the logs, then read the code path that produced each step.
+
+### **How to Study This Project**
+
+1. **Start with the workflow**: `SYSTEM_OVERVIEW.md` shows API → supervisor → agents → MCP/RSS → LLM → TTS → output.
+2. **Study the API contract**: `API_DOCUMENTATION.md` explains queued generation and task polling.
+3. **Follow the supervisor**: `src/podcast_generator/agent_supervisor.py` shows how work is split across agents.
+4. **Follow content sourcing**: `src/podcast_generator/article_fetcher.py` and `src/podcast_generator/mcp_client.py` show MCP-first fetching with RSS fallback.
+5. **Follow collaboration**: `src/podcast_generator/a2a_protocol.py` demonstrates peer-style quality assessment.
+6. **Follow generation**: `src/podcast_generator/ai_processor.py` and `src/podcast_generator/file_utils.py` turn articles into script and audio.
+7. **Follow resilience**: `src/podcast_generator/circuit_breaker.py` demonstrates failure boundaries and fallback thinking.
+8. **Finish with tests**: `tests/` gives safe examples learners can change before touching paid APIs.
+
+### **Pattern-to-Test Map**
+
+| Pattern | Code to Read | Test to Run |
+|---|---|---|
+| Supervisor orchestration | `src/podcast_generator/agent_supervisor.py` | `tests/test_agent_supervisor.py` |
+| A2A consensus | `src/podcast_generator/a2a_protocol.py` | `tests/test_a2a_protocol.py` |
+| MCP/RSS sourcing | `src/podcast_generator/article_fetcher.py`, `src/podcast_generator/mcp_client.py` | `tests/test_mcp_rss_fetching.py` |
+| Circuit breaker resilience | `src/podcast_generator/circuit_breaker.py` | `tests/test_circuit_breaker.py` |
+
+### **Production Gaps to Notice**
+
+These gaps are part of the lesson. In production, task state should move from memory to Redis or a database, authentication and authorization should be hardened, workers should run outside the web process, queues should absorb long-running jobs, retries and dead-letter handling should be explicit, rate limiting should protect paid API calls, logs and metrics should be centralized, and deployment should include secrets management, scaling, backups, and alerting.
+
 ---
 
 ## 🌟 **Level 1: Foundational Concepts**
@@ -49,17 +75,12 @@ AI Agent Patterns are reusable solutions to common problems in multi-agent syste
 
 ```mermaid
 graph TD
-    A[📰 Fetch Articles] --> B[🎯 Quality Assessment]
-    B --> C[🤖 AI Summarization]
-    C --> D[📝 Script Generation]
-    D --> E[🎵 Audio Production]
-    E --> F[🎙️ Final Podcast]
-    
-    G[🏛️ Supervisor] --> A
-    G --> B
-    G --> C
-    G --> D
-    G --> E
+    A[API] --> B[Supervisor]
+    B --> C[Specialized Agents]
+    C --> D[MCP/RSS Content Sources]
+    D --> E[LLM Summaries and Script]
+    E --> F[TTS Audio Generation]
+    F --> G[Output Files]
 ```
 
 ---
@@ -90,6 +111,8 @@ class AgentSupervisor:
 - Distributed computing clusters
 - DevOps pipeline coordination
 
+**🧪 Exercise**: Add an observer that records elapsed task time, then extend `tests/test_agent_supervisor.py`.
+
 ### **Pattern 2: 🤝 Agent-to-Agent Communication**
 
 **📖 Concept**: Agents communicate directly with peers to collaborate on tasks, like experts consulting each other.
@@ -114,6 +137,8 @@ class A2AQualityAgent:
 - Peer-to-peer networks
 - Collaborative filtering systems
 
+**🧪 Exercise**: Change the confidence weighting formula, then update `tests/test_a2a_protocol.py`.
+
 ### **Pattern 3: 🎭 Specialized Agent Pattern**
 
 **📖 Concept**: Each agent has a specific domain expertise, like specialists in a medical team.
@@ -135,6 +160,8 @@ class ContentProcessorAgent(SpecializedAgent):
 - Recommendation engines
 - Automated trading systems
 - Content moderation platforms
+
+**🧪 Exercise**: Add a new specialized agent with one task contract, then extend `tests/test_agent_supervisor.py`.
 
 ### **Pattern 4: 👁️ Observer Pattern**
 
@@ -160,6 +187,8 @@ def task_monitor_observer(event_type: str, data: Dict[str, Any]):
 - Monitoring and alerting systems
 - User interface updates
 
+**🧪 Exercise**: Add a second observer that stores events in memory, then assert the event order in `tests/test_agent_supervisor.py`.
+
 ### **Pattern 5: 🔄 Circuit Breaker Resilience**
 
 **📖 Concept**: Prevent cascade failures by "breaking the circuit" when services are unhealthy, like electrical circuit breakers.
@@ -184,6 +213,8 @@ class CircuitBreaker:
 - Database connection pooling
 - API rate limiting
 
+**🧪 Exercise**: Add a half-open recovery test, then extend `tests/test_circuit_breaker.py`.
+
 ---
 
 ## 🧪 **Level 4: Hands-on Learning**
@@ -193,42 +224,40 @@ class CircuitBreaker:
 **Objective**: Understand the traditional workflow
 
 ```bash
-# Run without agent patterns
+# Run the default podcast workflow
 python -m podcast_generator.main --language en --voice "Aria"
 ```
 
 **🎯 Learning Goals**:
-- Observe sequential processing
-- Understand single-threaded execution
-- Note simplicity vs. limitations
+- Observe the end-to-end workflow
+- Identify where content fetching, LLM processing, and audio generation happen
+- Note which steps require external API keys
 
 ### **🔬 Experiment 2: A2A Collaboration**
 
 **Objective**: See agents collaborating on quality assessment
 
 ```bash
-# Enable A2A protocol
-python -m podcast_generator.main --language en --voice "Aria" --enable-a2a
+python -m pytest tests/test_a2a_protocol.py -q
 ```
 
 **🎯 Learning Goals**:
-- Watch agents discover each other
-- Observe consensus building in logs
-- Compare quality scores with/without A2A
+- Inspect local quality scoring
+- Observe confidence-weighted consensus
+- Change one score and predict the resulting consensus
 
 ### **🔬 Experiment 3: Full Agent Coordination**
 
 **Objective**: Experience complete multi-agent system
 
 ```bash
-# Full agent supervisor mode
-python -m podcast_generator.main --language en --voice "Aria" --enable-a2a --use-supervisor
+python -m pytest tests/test_agent_supervisor.py -q
 ```
 
 **🎯 Learning Goals**:
-- See task distribution across agents
-- Monitor agent health and status
-- Understand coordination overhead
+- See task submission and execution
+- Monitor observer event order
+- Understand how a supervisor delegates work without calling paid APIs
 
 ### **🔬 Experiment 4: Visual Learning**
 

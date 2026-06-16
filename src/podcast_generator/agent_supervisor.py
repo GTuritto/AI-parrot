@@ -27,11 +27,10 @@ This implementation serves as a practical example of how enterprise-grade
 multi-agent systems coordinate complex workflows while maintaining
 scalability, reliability, and observability.
 """
-import asyncio
 import uuid
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Callable
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, field
 from enum import Enum
 import logging
 

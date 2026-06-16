@@ -17,7 +17,7 @@ import logging
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Header, Depends, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 import uvicorn
 
 # Add project paths
@@ -60,16 +60,17 @@ app = FastAPI(
 
 # Request/Response Models
 class PodcastRequest(BaseModel):
-    language: Literal["en", "es"] = Field(default="en", description="Language for the podcast (en/es)")
-    voice: str = Field(default="Aria", min_length=1, max_length=80, description="Voice to use for the podcast")
-    
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "language": "en",
-                "voice": "Aria"
+                "voice": "Aria",
             }
         }
+    )
+
+    language: Literal["en", "es"] = Field(default="en", description="Language for the podcast (en/es)")
+    voice: str = Field(default="Aria", min_length=1, max_length=80, description="Voice to use for the podcast")
 
 class PodcastResponse(BaseModel):
     success: bool

@@ -15,6 +15,47 @@
 - 🔄 **Resistencia Circuit Breaker** - Tolerancia a fallos y degradación elegante
 - 👁️ **Monitoreo Patrón Observer** - Observabilidad del sistema en tiempo real
 
+## 🎓 Propósito Educativo
+
+AI-Parrot se entiende mejor como un proyecto didáctico para aprender cómo encajan los sistemas de IA orientados a agentes en un flujo real. El objetivo del producto es simple: convertir noticias recientes de IA en un podcast. Ese objetivo acotado facilita estudiar la arquitectura porque cada patrón tiene una responsabilidad concreta.
+
+Usa este proyecto para aprender:
+- **Agentes**: cómo trabajadores especializados dividen obtención, evaluación, procesamiento y generación de audio.
+- **Supervisión de agentes**: cómo un coordinador envía tareas, sigue eventos del ciclo de vida y recoge resultados.
+- **Colaboración A2A**: cómo los agentes intercambian evaluaciones en vez de depender de una sola decisión aislada.
+- **Integración MCP**: cómo usar fuentes dinámicas de contenido primero, con RSS como respaldo.
+- **Resiliencia**: cómo circuit breakers y respaldos protegen flujos largos.
+- **Diseño de API para IA**: por qué los trabajos largos se encolan y se consultan, en lugar de mantener abierta una sola solicitud HTTP.
+
+### Ruta de Aprendizaje Sugerida
+
+1. Lee [RESUMEN_SISTEMA_ES.md](RESUMEN_SISTEMA_ES.md) para entender el flujo de solicitud.
+2. Lee [DOCUMENTACION_API_ES.md](DOCUMENTACION_API_ES.md) para ver cómo se envían y consultan trabajos largos.
+3. Lee [src/podcast_generator/agent_supervisor.py](src/podcast_generator/agent_supervisor.py) para estudiar la orquestación supervisor-worker.
+4. Lee [src/podcast_generator/article_fetcher.py](src/podcast_generator/article_fetcher.py), luego [src/podcast_generator/mcp_client.py](src/podcast_generator/mcp_client.py), para seguir fuentes MCP primero con respaldo RSS.
+5. Lee [src/podcast_generator/a2a_protocol.py](src/podcast_generator/a2a_protocol.py) para estudiar evaluación de calidad agente-a-agente.
+6. Lee [src/podcast_generator/ai_processor.py](src/podcast_generator/ai_processor.py), luego [src/podcast_generator/file_utils.py](src/podcast_generator/file_utils.py), para seguir generación de guion con LLM y salida TTS.
+7. Lee [src/podcast_generator/circuit_breaker.py](src/podcast_generator/circuit_breaker.py) para entender límites de resiliencia.
+8. Lee las pruebas en [tests](tests) y cambia un comportamiento a la vez.
+
+### Buenos Ejercicios
+
+- Supervisor: añade un nuevo agente especializado y extiende `tests/test_agent_supervisor.py`.
+- MCP/RSS: añade un feed en `config/rss_feeds.json` y ajusta `tests/test_mcp_rss_fetching.py`.
+- A2A: cambia el peso del consenso y actualiza `tests/test_a2a_protocol.py`.
+- Resiliencia: ajusta umbrales de fallo y extiende `tests/test_circuit_breaker.py`.
+- Flujo API: extiende `/api/tasks/{task_id}` con porcentajes de progreso y añade una prueba de contrato.
+
+Ejecuta la suite segura de aprendizaje con:
+
+```bash
+python -m pytest -q
+```
+
+### Límites de Producción
+
+Este proyecto usa patrones inspirados en producción, pero es intencionalmente educativo. Antes de usarlo como servicio de producción, mueve el estado de tareas en memoria a Redis o una base de datos, endurece autenticación y autorización, añade rate limiting, centraliza logs y métricas, añade colas y procesos worker, define reintentos y manejo de tareas muertas, amplía las pruebas y prepara secretos, escalado y monitoreo específicos de despliegue.
+
 ## ✨ Características
 
 | Tarea | Modelo | Propósito |
@@ -113,20 +154,23 @@ docker-compose up --build
 ./run_api.sh      # Solo API
 ./run_ui.sh       # Solo Streamlit
 
-# Acceder al sistema unificado
+# Acceder al sistema unificado (publicado en localhost por defecto)
 # - UI Streamlit: http://localhost:8501 (Interfaz Interactiva)
-# - FastAPI: http://localhost:8000/api (REST API)
-# - Documentos Interactivos: http://localhost:8000/api/docs
-# - Información del Sistema: http://localhost:8000/info
+# - FastAPI: http://localhost:8000/api (alias REST API)
+# - Documentos Interactivos: http://localhost:8000/docs
+# - Información del Sistema: http://localhost:8000/status
 # - Verificación de Salud: http://localhost:8000/api/health
 ```
 
 **Uso de API:**
 ```bash
-# Generar podcast vía API
-curl -X POST "http://localhost:8000/api/generate" \
+# Encolar generación de podcast vía API
+TASK_ID=$(curl -s -X POST "http://localhost:8000/api/generate" \
   -H "Content-Type: application/json" \
-  -d '{"language": "en", "voice": "Aria"}'
+  -d '{"language": "es", "voice": "Sarah"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['task_id'])")
+
+# Consultar estado de la tarea
+curl -X GET "http://localhost:8000/api/tasks/${TASK_ID}"
 
 # Verificar estado del sistema
 curl -X GET "http://localhost:8000/api/status"
@@ -134,11 +178,13 @@ curl -X GET "http://localhost:8000/api/status"
 
 ## 📚 Documentación
 
-Para documentación detallada, por favor consulta los siguientes archivos en el directorio `docs/`:
+Para documentación detallada, consulta estos archivos:
 
-- [ARCHITECTURE.md](docs/ARCHITECTURE.md): Arquitectura y diseño del sistema
-- [CODE_EXPLANATION.md](docs/CODE_EXPLANATION.md): Documentación detallada del código
-- [QUICKSTART.md](docs/QUICKSTART.md): Guía de inicio
+- [README.md](README.md): Guía principal en inglés
+- [GUIA_EDUCATIVA_ES.md](GUIA_EDUCATIVA_ES.md): Ruta de aprendizaje para patrones de agentes IA
+- [DOCUMENTACION_API_ES.md](DOCUMENTACION_API_ES.md): Referencia completa de la API
+- [RESUMEN_SISTEMA_ES.md](RESUMEN_SISTEMA_ES.md): Arquitectura y capacidades del sistema
+- [CODE_WALKTHROUGH.md](CODE_WALKTHROUGH.md): Recorrido técnico del código
 
 ## 🔧 Configuración
 
@@ -151,9 +197,10 @@ Crea un archivo `.env` con las siguientes variables:
 ANTHROPIC_API_KEY=tu_clave_anthropic_aqui
 
 # Opcionales pero recomendadas
-OPENAI_API_KEY=tu_clave_openai_aqui  # Requerida para traducción al español
+OPENAI_API_KEY=tu_clave_openai_aqui  # Usada para traducción al español y refinamiento GPT
 ELEVENLABS_API_KEY=tu_clave_elevenlabs_aqui  # Requerida para generación de audio
 NEWS_API_KEY=tu_clave_newsapi_aqui  # Recurre a feeds RSS si no está disponible
+AI_PARROT_API_TOKEN=cambia_esto_para_despliegues_no_locales  # Token opcional para endpoints protegidos
 
 # Configuración Servidor MCP (Opcional)
 MCP_SERVER_URL=http://localhost:3002/mcp

@@ -26,7 +26,7 @@ This implements the Client-Server pattern with MCP protocol:
 import asyncio
 import json
 import logging
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 import aiohttp
 from dataclasses import dataclass

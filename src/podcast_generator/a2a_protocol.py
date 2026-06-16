@@ -42,13 +42,13 @@ demonstrating principles used in modern AI research and production systems.
 """
 
 import asyncio
-import json
 import uuid
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
 from enum import Enum
 import aiohttp
+from aiohttp import web
 
 
 class MessageType(Enum):
@@ -136,8 +136,6 @@ class A2AQualityAgent:
             
     async def start_server(self):
         """Start HTTP server to receive A2A messages."""
-        from aiohttp import web
-        
         app = web.Application()
         app.router.add_post('/a2a/message', self.handle_message)
         app.router.add_get('/a2a/status', self.handle_status)

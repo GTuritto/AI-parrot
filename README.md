@@ -15,6 +15,47 @@
 - 🔄 **Circuit Breaker Resilience** - Fault tolerance and graceful degradation
 - 👁️ **Observer Pattern Monitoring** - Real-time system observability
 
+## 🎓 Educational Purpose
+
+AI-Parrot is best understood as a didactical project for learning how agent-oriented AI systems fit together in a real workflow. The product goal is simple: turn fresh AI news into a podcast. That narrow goal makes the architecture easier to study because each pattern has a concrete job.
+
+Use this project to learn:
+- **Agents**: how specialized workers divide fetching, assessment, processing, and audio generation.
+- **Agent supervision**: how a coordinator submits tasks, tracks lifecycle events, and collects results.
+- **A2A collaboration**: how agents can exchange assessments instead of relying on one isolated decision.
+- **MCP integration**: how dynamic content sources can be used first, with RSS as a fallback.
+- **Resilience**: how circuit breakers and fallbacks protect long-running workflows.
+- **API workflow design**: why long-running AI jobs should be queued and polled instead of held open in one HTTP request.
+
+### Suggested Learning Path
+
+1. Read [SYSTEM_OVERVIEW.md](SYSTEM_OVERVIEW.md) to understand the request flow.
+2. Read [API_DOCUMENTATION.md](API_DOCUMENTATION.md) to see how long-running jobs are submitted and polled.
+3. Read [src/podcast_generator/agent_supervisor.py](src/podcast_generator/agent_supervisor.py) to study supervisor-worker orchestration.
+4. Read [src/podcast_generator/article_fetcher.py](src/podcast_generator/article_fetcher.py), then [src/podcast_generator/mcp_client.py](src/podcast_generator/mcp_client.py), to follow MCP-first sourcing with RSS fallback.
+5. Read [src/podcast_generator/a2a_protocol.py](src/podcast_generator/a2a_protocol.py) to study agent-to-agent quality assessment.
+6. Read [src/podcast_generator/ai_processor.py](src/podcast_generator/ai_processor.py), then [src/podcast_generator/file_utils.py](src/podcast_generator/file_utils.py), to follow LLM script generation and TTS output.
+7. Read [src/podcast_generator/circuit_breaker.py](src/podcast_generator/circuit_breaker.py) to understand resilience boundaries.
+8. Read the tests in [tests](tests) and change one behavior at a time.
+
+### Good Exercises
+
+- Supervisor: add a new specialized agent and extend `tests/test_agent_supervisor.py`.
+- MCP/RSS: add a feed in `config/rss_feeds.json`, then adjust `tests/test_mcp_rss_fetching.py`.
+- A2A: change the consensus weighting and update `tests/test_a2a_protocol.py`.
+- Resilience: tune failure thresholds and extend `tests/test_circuit_breaker.py`.
+- API workflow: extend `/api/tasks/{task_id}` with progress percentages and add a contract test.
+
+Run the safe learning suite with:
+
+```bash
+python -m pytest -q
+```
+
+### Production Boundaries
+
+This project uses production-inspired patterns, but it is intentionally educational. Before using it as a production service, move in-memory task state to Redis or a database, harden authentication and authorization, add rate limiting, centralize logs and metrics, add queues and worker processes, define retries and dead-letter handling, expand tests, and build deployment-specific secrets, scaling, and monitoring.
+
 ## ✨ Features
 | Task | Model | Purpose |
 |------|-------|---------|
