@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/ai-parrot-logo.png" alt="AI-Parrot logo" width="320" />
+</p>
+
 # 🌐 AI-Parrot Enterprise API Documentation
 
 ## 🚀 **Quick Start**

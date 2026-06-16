@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/ai-parrot-logo.png" alt="AI-Parrot logo" width="320" />
+</p>
+
 # 🎓 Resultados de Aprendizaje - Dominio de Patrones de Agentes IA
 
 ## 🎯 **Lo que los Estudiantes Lograrán**

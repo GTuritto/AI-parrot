@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/ai-parrot-logo.png" alt="AI-Parrot logo" width="320" />
+</p>
+
 # 🤖 AI-Parrot Podcast Generator
 
 **Enterprise AI Agent System for Intelligent Podcast Generation**
