@@ -1,11 +1,11 @@
 # Core dependencies
 aiofiles==24.1.0
-aiohttp==3.10.5
+aiohttp==3.14.1
 beautifulsoup4==4.12.3
 feedparser==6.0.11
 gTTS==2.5.3
-python-dotenv==1.0.1
-requests==2.32.3
+python-dotenv==1.2.2
+requests==2.33.0
 
 # LangChain and AI dependencies
 langchain>=0.2.16
@@ -19,7 +19,7 @@ elevenlabs==1.8.0
 pydub==0.25.1
 
 # Streamlit (for UI)
-streamlit==1.38.0
+streamlit==1.54.0
 plotly==5.17.0
 
 # Additional utilities
