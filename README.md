@@ -112,20 +112,23 @@ docker-compose up --build
 ./run_api.sh      # API only
 ./run_ui.sh       # Streamlit only
 
-# Access the unified system
+# Access the unified system (bound to localhost by default)
 # - Streamlit UI: http://localhost:8501 (Interactive Interface)
-# - FastAPI: http://localhost:8000/api (REST API)
-# - Interactive Docs: http://localhost:8000/api/docs
-# - System Info: http://localhost:8000/info
+# - FastAPI: http://localhost:8000/api (REST API aliases)
+# - Interactive Docs: http://localhost:8000/docs
+# - System Info: http://localhost:8000/status
 # - Health Check: http://localhost:8000/api/health
 ```
 
 **API Usage:**
 ```bash
-# Generate podcast via API
-curl -X POST "http://localhost:8000/api/generate" \
+# Queue podcast generation via API
+TASK_ID=$(curl -s -X POST "http://localhost:8000/api/generate" \
   -H "Content-Type: application/json" \
-  -d '{"language": "en", "voice": "Aria"}'
+  -d '{"language": "en", "voice": "Aria"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['task_id'])")
+
+# Poll task status
+curl -X GET "http://localhost:8000/api/tasks/${TASK_ID}"
 
 # Check system status
 curl -X GET "http://localhost:8000/api/status"
@@ -163,9 +166,10 @@ Create a `.env` file with the following variables:
 ANTHROPIC_API_KEY=your_anthropic_key_here
 
 # Optional but recommended
-OPENAI_API_KEY=your_openai_key_here  # Required for Spanish translation
+OPENAI_API_KEY=your_openai_key_here  # Used for Spanish translation and GPT refinement
 ELEVENLABS_API_KEY=your_elevenlabs_key_here  # Required for audio generation
 NEWS_API_KEY=your_newsapi_key_here  # Falls back to RSS feeds if not available
+AI_PARROT_API_TOKEN=change_me_for_non_local_deployments  # Optional bearer token for protected endpoints
 
 # MCP Server Configuration (Optional)
 MCP_SERVER_URL=http://localhost:3002/mcp

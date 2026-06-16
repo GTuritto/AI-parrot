@@ -20,10 +20,10 @@ import json
 import csv
 import asyncio
 import random
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Union, Literal
-import asyncio
 from elevenlabs.client import ElevenLabs
 from .translator import Translator
 from utils.env import APIKeys
@@ -267,7 +267,8 @@ class FileManager:
                 text_content = original_text
         
         # Generate output filename with language and voice
-        output_filename = f"podcast_{date_str}_{voice_name}_{language}.mp3"
+        safe_voice_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", voice_name).strip("._") or "voice"
+        output_filename = f"podcast_{date_str}_{safe_voice_name}_{language}.mp3"
         output_path = os.path.join(self.output_dir, output_filename)
         
         retry_count = 0

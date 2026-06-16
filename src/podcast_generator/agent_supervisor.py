@@ -307,10 +307,9 @@ class ContentProcessorAgent(SpecializedAgent):
             summaries = []
             for article in articles:
                 summary = processor.summarize_article(article)
-                summaries.append({
-                    'article': article,
-                    'summary': summary
-                })
+                article_summary = article.copy()
+                article_summary["summary"] = summary
+                summaries.append(article_summary)
             return {"summaries": summaries}
             
         elif task.task_name == "generate_script":

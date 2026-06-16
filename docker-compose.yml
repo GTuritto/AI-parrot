@@ -3,10 +3,11 @@ services:
     build: .
     command: uvicorn api.main:app --host 0.0.0.0 --port 8000
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       # Copy your API keys from .env file
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
       - ELEVEN_API_KEY=${ELEVEN_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - NEWS_API_KEY=${NEWS_API_KEY}
@@ -14,6 +15,7 @@ services:
       - MISTRAL_API_KEY=${MISTRAL_API_KEY}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - AI_PARROT_API_TOKEN=${AI_PARROT_API_TOKEN}
       # MCP Server Configuration
       - MCP_SERVER_URL=${MCP_SERVER_URL:-http://host.docker.internal:3002/mcp}
       - MCP_SSE_URL=${MCP_SSE_URL:-http://host.docker.internal:3002/sse}
@@ -43,10 +45,11 @@ services:
     build: .
     command: streamlit run streamlit_app.py --server.port=8501 --server.address=0.0.0.0
     ports:
-      - "8501:8501"
+      - "127.0.0.1:8501:8501"
     environment:
       # Copy your API keys from .env file
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
       - ELEVEN_API_KEY=${ELEVEN_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - NEWS_API_KEY=${NEWS_API_KEY}
@@ -54,6 +57,8 @@ services:
       - MISTRAL_API_KEY=${MISTRAL_API_KEY}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - AI_PARROT_API_TOKEN=${AI_PARROT_API_TOKEN}
+      - AI_PARROT_API_URL=${AI_PARROT_API_URL:-http://ai-parrot-api:8000}
       # MCP Server Configuration
       - MCP_SERVER_URL=${MCP_SERVER_URL:-http://host.docker.internal:3002/mcp}
       - MCP_SSE_URL=${MCP_SSE_URL:-http://host.docker.internal:3002/sse}

@@ -26,8 +26,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 
 import feedparser
-from bs4 import BeautifulSoup
-import requests
+import aiohttp
 
 from podcast_generator.mcp_client import MCPClient, MCPArticle
 from podcast_generator.config_loader import get_config_loader, RSSFeedConfig
@@ -132,6 +131,9 @@ def is_within_date_range(published_date: datetime, days: Optional[int] = None) -
         filter_config = config_loader.get_content_filter_config()
         days = filter_config.date_range_days
     
+    if published_date.tzinfo is not None:
+        published_date = published_date.replace(tzinfo=None)
+
     cutoff_date = datetime.now() - timedelta(days=days)
     return published_date >= cutoff_date
 
@@ -159,8 +161,17 @@ async def fetch_rss_feed_articles(feed_config: RSSFeedConfig) -> List[Dict[str, 
         config_loader = get_config_loader()
         fetch_config = config_loader.get_fetching_config()
         
-        # Parse the RSS feed
-        feed = feedparser.parse(feed_config.url)
+        headers = {"User-Agent": fetch_config.user_agent}
+        timeout = aiohttp.ClientTimeout(total=fetch_config.timeout_seconds)
+
+        async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
+            async with session.get(feed_config.url) as response:
+                response.raise_for_status()
+                feed_content = await response.read()
+
+        # Parse the RSS feed from fetched bytes. feedparser itself is synchronous,
+        # but parsing local content avoids blocking the event loop on network I/O.
+        feed = feedparser.parse(feed_content)
         articles = []
         
         # Process entries up to the configured maximum
@@ -229,7 +240,7 @@ async def fetch_articles_from_mcp() -> List[Dict[str, Any]]:
             articles = []
             for mcp_article in mcp_articles:
                 # Filter by date (last two weeks)
-                if is_within_last_two_weeks(mcp_article.published):
+                if is_within_date_range(mcp_article.published):
                     # Filter by keywords
                     if _contains_interesting_keywords(mcp_article.title, mcp_article.description):
                         article_dict = {
@@ -445,5 +456,3 @@ def _remove_duplicates(articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     
     logger.info(f"Deduplication: {len(articles)} -> {len(unique_articles)} articles")
     return unique_articles
-
-

@@ -27,6 +27,16 @@ sys.path.insert(0, str(project_root / "src"))
 from podcast_generator.langgraph_workflow import run_podcast_workflow
 from utils.env import validate_api_keys, load_env_vars
 
+def api_headers() -> Dict[str, str]:
+    """Return API auth headers when a local token is configured."""
+    token = os.getenv("AI_PARROT_API_TOKEN", "")
+    return {"Authorization": f"Bearer {token}"} if token else {}
+
+
+def api_base_url() -> str:
+    """Return the configured API base URL."""
+    return os.getenv("AI_PARROT_API_URL", "http://localhost:8000").rstrip("/")
+
 # Page configuration
 st.set_page_config(
     page_title="🤖 AI-Parrot Podcast Generator",
@@ -103,13 +113,14 @@ def check_api_keys():
         
         if not os.getenv('ANTHROPIC_API_KEY'):
             missing_keys.append('ANTHROPIC_API_KEY')
-        if not os.getenv('OPENAI_API_KEY'):
-            missing_keys.append('OPENAI_API_KEY')
         
         if missing_keys:
             st.error(f"❌ Missing API keys: {', '.join(missing_keys)}")
             st.info("Please set your API keys in the .env file.")
             return False
+
+        if not os.getenv('OPENAI_API_KEY'):
+            st.info("OPENAI_API_KEY is optional. Spanish translation and GPT refinement may fall back or be skipped.")
         
         return True
     except Exception as e:
@@ -139,16 +150,42 @@ async def generate_podcast_async(language: str, voice: str):
     """Generate podcast using the enterprise AI system."""
     try:
         # Use the API endpoint instead of direct function call for better reliability
-        api_url = "http://localhost:8000/generate"
+        base_url = api_base_url()
+        api_url = f"{base_url}/generate"
         payload = {
             "language": language,
             "voice": voice
         }
         
-        response = requests.post(api_url, json=payload, timeout=300)
-        if response.status_code == 200:
-            result = response.json()
-            return {"success": True, "data": result}
+        response = requests.post(api_url, json=payload, headers=api_headers(), timeout=30)
+        if response.status_code in (200, 202):
+            queued = response.json()
+            task_id = queued.get("task_id")
+            if not task_id:
+                return {"success": True, "data": queued}
+
+            deadline = time.time() + 900
+            while time.time() < deadline:
+                task_response = requests.get(
+                    f"{base_url}/tasks/{task_id}",
+                    headers=api_headers(),
+                    timeout=10,
+                )
+                task_response.raise_for_status()
+                task = task_response.json()
+
+                if task["status"] == "completed":
+                    return {"success": True, "data": task.get("result", {}), "task_id": task_id}
+                if task["status"] == "failed":
+                    return {
+                        "success": False,
+                        "error": task.get("error") or "Podcast generation failed",
+                        "task_id": task_id,
+                    }
+
+                await asyncio.sleep(5)
+
+            return {"success": False, "error": "Podcast generation timed out", "task_id": task_id}
         else:
             return {"success": False, "error": f"API Error: {response.status_code}"}
     except requests.exceptions.RequestException as e:
@@ -183,7 +220,7 @@ def format_file_size(size_bytes):
 def get_system_status():
     """Get system status from API."""
     try:
-        response = requests.get("http://localhost:8000/status", timeout=5)
+        response = requests.get(f"{api_base_url()}/status", headers=api_headers(), timeout=5)
         if response.status_code == 200:
             return response.json()
         else:
@@ -194,7 +231,7 @@ def get_system_status():
 def get_api_health():
     """Get API health status."""
     try:
-        response = requests.get("http://localhost:8000/health", timeout=5)
+        response = requests.get(f"{api_base_url()}/health", timeout=5)
         if response.status_code == 200:
             return response.json()
         else:
@@ -341,7 +378,7 @@ def get_docker_logs():
     
     # Method 1: Try API endpoint first
     try:
-        result = requests.get("http://localhost:8000/api/logs", timeout=10)
+        result = requests.get(f"{api_base_url()}/api/logs", headers=api_headers(), timeout=10)
         if result.status_code == 200:
             api_response = result.json()
             logs = api_response.get("logs", [])

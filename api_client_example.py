@@ -9,14 +9,19 @@ to generate podcasts using the enterprise AI agent patterns.
 import requests
 import json
 import time
+import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 class AIParrotClient:
     """Client for the AI-Parrot Enterprise API."""
     
-    def __init__(self, base_url: str = "http://localhost:8000"):
+    def __init__(self, base_url: str = "http://localhost:8000", api_token: Optional[str] = None):
         self.base_url = base_url.rstrip('/')
+        self.api_token = api_token or os.getenv("AI_PARROT_API_TOKEN", "")
+
+    def _headers(self) -> Dict[str, str]:
+        return {"Authorization": f"Bearer {self.api_token}"} if self.api_token else {}
         
     def health_check(self) -> Dict[str, Any]:
         """Check the health of the API."""
@@ -26,7 +31,7 @@ class AIParrotClient:
     
     def system_status(self) -> Dict[str, Any]:
         """Get detailed system status."""
-        response = requests.get(f"{self.base_url}/status")
+        response = requests.get(f"{self.base_url}/status", headers=self._headers())
         response.raise_for_status()
         return response.json()
     
@@ -41,14 +46,39 @@ class AIParrotClient:
         response = requests.post(
             f"{self.base_url}/generate",
             json=payload,
-            timeout=300  # 5 minutes timeout
+            headers=self._headers(),
+            timeout=30
+        )
+        response.raise_for_status()
+        queued = response.json()
+        task_id = queued.get("task_id")
+        if not task_id:
+            return queued
+
+        deadline = time.time() + 900
+        while time.time() < deadline:
+            task = self.get_task_status(task_id)
+            if task["status"] == "completed":
+                return task.get("result", {})
+            if task["status"] == "failed":
+                raise RuntimeError(task.get("error") or "Podcast generation failed")
+            time.sleep(5)
+
+        raise TimeoutError(f"Podcast generation task timed out: {task_id}")
+
+    def get_task_status(self, task_id: str) -> Dict[str, Any]:
+        """Get the status of a podcast generation task."""
+        response = requests.get(
+            f"{self.base_url}/tasks/{task_id}",
+            headers=self._headers(),
+            timeout=10,
         )
         response.raise_for_status()
         return response.json()
     
     def list_files(self) -> Dict[str, Any]:
         """List all generated podcast files."""
-        response = requests.get(f"{self.base_url}/files")
+        response = requests.get(f"{self.base_url}/files", headers=self._headers())
         response.raise_for_status()
         return response.json()
     
@@ -57,7 +87,7 @@ class AIParrotClient:
         if output_path is None:
             output_path = filename
             
-        response = requests.get(f"{self.base_url}/download/{filename}")
+        response = requests.get(f"{self.base_url}/download/{filename}", headers=self._headers())
         response.raise_for_status()
         
         with open(output_path, 'wb') as f:

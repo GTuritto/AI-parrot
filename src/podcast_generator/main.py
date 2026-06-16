@@ -101,8 +101,8 @@ async def main(
             print(f"\n❌ Generation failed: {result.get('error')}")
     except Exception as e:
         print(f"\n✗ An error occurred during podcast generation: {e}")
-        if "ELEVEN_API_KEY" in str(e):
-            print("Please make sure you have set the ELEVEN_API_KEY environment variable.")
+        if "ELEVEN" in str(e):
+            print("Please make sure you have set the ELEVENLABS_API_KEY environment variable.")
         if "voice" in str(e).lower():
             print("Please check that the specified voice is available in your ElevenLabs account.")
         raise

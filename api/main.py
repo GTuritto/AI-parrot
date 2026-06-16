@@ -6,16 +6,17 @@ Built with A2A collaborative assessment, Agent Supervisor coordination, MCP inte
 Circuit Breaker resilience, and Observer pattern monitoring.
 """
 
-import asyncio
+import secrets
 import os
 import sys
+import uuid
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Literal
 from datetime import datetime
 import logging
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Header, Depends, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 import uvicorn
 
@@ -25,7 +26,7 @@ sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root))
 
 from podcast_generator.langgraph_workflow import run_podcast_workflow_with_patterns
-from podcast_generator.memory_system import MemoryManager, MemoryType
+from podcast_generator.memory_system import MemoryManager
 from utils.env import validate_api_keys, load_env_vars
 
 # Configure logging with in-memory handler
@@ -59,8 +60,8 @@ app = FastAPI(
 
 # Request/Response Models
 class PodcastRequest(BaseModel):
-    language: str = Field(default="en", description="Language for the podcast (en/es)")
-    voice: str = Field(default="Aria", description="Voice to use for the podcast")
+    language: Literal["en", "es"] = Field(default="en", description="Language for the podcast (en/es)")
+    voice: str = Field(default="Aria", min_length=1, max_length=80, description="Voice to use for the podcast")
     
     class Config:
         schema_extra = {
@@ -81,6 +82,15 @@ class PodcastResponse(BaseModel):
     system_status: Optional[Dict[str, Any]] = None
     generation_time: Optional[float] = None
 
+class TaskStatusResponse(BaseModel):
+    task_id: str
+    status: str
+    created_at: str
+    updated_at: str
+    request: Dict[str, Any]
+    result: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
 class HealthResponse(BaseModel):
     status: str
     timestamp: str
@@ -90,9 +100,100 @@ class HealthResponse(BaseModel):
 
 # Global task storage (in production, use Redis or database)
 active_tasks: Dict[str, Dict[str, Any]] = {}
+MAX_TASK_HISTORY = 100
 
 # Global memory manager
 memory_manager = MemoryManager()
+
+def require_api_token(
+    authorization: Optional[str] = Header(default=None),
+    x_api_key: Optional[str] = Header(default=None),
+) -> None:
+    """Require a token only when AI_PARROT_API_TOKEN is configured."""
+    expected_token = os.getenv("AI_PARROT_API_TOKEN", "")
+    if not expected_token:
+        return
+
+    supplied_token = x_api_key or ""
+    if authorization and authorization.lower().startswith("bearer "):
+        supplied_token = authorization.split(" ", 1)[1].strip()
+
+    if not secrets.compare_digest(supplied_token, expected_token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing API token",
+        )
+
+
+def _resolve_output_file(filename: str) -> Path:
+    """Resolve a generated output file without allowing path traversal."""
+    output_dir = Path("PodcastOutput").resolve()
+    file_path = (output_dir / Path(filename).name).resolve()
+
+    if file_path.parent != output_dir:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    if file_path.suffix.lower() not in {".mp3", ".wav", ".txt"}:
+        raise HTTPException(status_code=400, detail="Invalid file type")
+
+    return file_path
+
+
+async def run_generation_task(task_id: str, request: PodcastRequest) -> None:
+    """Execute podcast generation and update in-memory task state."""
+    active_tasks[task_id]["status"] = "running"
+    active_tasks[task_id]["updated_at"] = datetime.now().isoformat()
+    start_time = datetime.now()
+
+    try:
+        result = await run_podcast_workflow_with_patterns(
+            language=request.language,
+            voice_name=request.voice,
+            enable_a2a=True,
+            use_supervisor=True,
+            use_resilience=True,
+        )
+        generation_time = (datetime.now() - start_time).total_seconds()
+        result["generation_time"] = generation_time
+
+        if result.get("success"):
+            active_tasks[task_id].update(
+                status="completed",
+                result=result,
+                error=None,
+                updated_at=datetime.now().isoformat(),
+            )
+            logger.info("Podcast task %s completed in %.2fs", task_id, generation_time)
+        else:
+            active_tasks[task_id].update(
+                status="failed",
+                result=result,
+                error=result.get("error", "Podcast generation failed"),
+                updated_at=datetime.now().isoformat(),
+            )
+            logger.error("Podcast task %s failed: %s", task_id, result.get("error"))
+
+    except Exception as e:
+        active_tasks[task_id].update(
+            status="failed",
+            result=None,
+            error=str(e),
+            updated_at=datetime.now().isoformat(),
+        )
+        logger.exception("Podcast task %s failed unexpectedly", task_id)
+    finally:
+        completed_tasks = [
+            task
+            for task in active_tasks.values()
+            if task.get("status") in {"completed", "failed"}
+        ]
+        if len(completed_tasks) > MAX_TASK_HISTORY:
+            completed_tasks.sort(key=lambda task: task.get("updated_at", ""))
+            for old_task in completed_tasks[: len(completed_tasks) - MAX_TASK_HISTORY]:
+                active_tasks.pop(old_task["task_id"], None)
 
 async def startup_event():
     """Initialize the application on startup."""
@@ -115,6 +216,7 @@ async def root():
         "health": "/health"
     }
 
+@app.get("/api/health", response_model=HealthResponse)
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint."""
@@ -138,7 +240,18 @@ async def health_check():
             "news_api": api_status.get("news_api", False)
         }
     )
-@app.post("/generate", response_model=PodcastResponse)
+@app.post(
+    "/api/generate",
+    response_model=PodcastResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(require_api_token)],
+)
+@app.post(
+    "/generate",
+    response_model=PodcastResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(require_api_token)],
+)
 async def generate_podcast(request: PodcastRequest, background_tasks: BackgroundTasks):
     """
     Generate a podcast using the enterprise AI agent system.
@@ -150,7 +263,7 @@ async def generate_podcast(request: PodcastRequest, background_tasks: Background
     - Circuit Breaker Resilience for fault tolerance
     - Observer Pattern Monitoring for real-time insights
     """
-    logger.info(f"Starting podcast generation: language={request.language}, voice={request.voice}")
+    logger.info(f"Queueing podcast generation: language={request.language}, voice={request.voice}")
     
     # Validate API keys
     api_status = validate_api_keys()
@@ -161,68 +274,57 @@ async def generate_podcast(request: PodcastRequest, background_tasks: Background
             detail="Anthropic API key is required for podcast generation"
         )
     
-    logger.info(f"🚀 Starting podcast generation: {request.language}/{request.voice}")
-    
-    try:
-        start_time = datetime.now()
-        
-        # Run the enterprise AI agent workflow
-        result = await run_podcast_workflow_with_patterns(
-            language=request.language,
-            voice_name=request.voice,
-            enable_a2a=True,  # Always enabled in enterprise system
-            use_supervisor=True,  # Always enabled in enterprise system
-            use_resilience=True  # Always enabled in enterprise system
-        )
-        
-        end_time = datetime.now()
-        generation_time = (end_time - start_time).total_seconds()
-        
-        if result.get("success"):
-            logger.info(f"✅ Podcast generated successfully in {generation_time:.2f}s")
-            
-            return PodcastResponse(
-                success=True,
-                message="Podcast generated successfully with enterprise AI agent patterns",
-                audio_path=result.get("audio_path"),
-                articles_processed=result.get("articles_processed"),
-                tasks_completed=result.get("tasks_completed"),
-                a2a_quality_score=result.get("a2a_quality_score"),
-                system_status=result.get("system_status"),
-                generation_time=generation_time
-            )
-        else:
-            logger.error(f"❌ Podcast generation failed: {result.get('error')}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Podcast generation failed: {result.get('error')}"
-            )
-            
-    except Exception as e:
-        logger.error(f"❌ Unexpected error during podcast generation: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Unexpected error during podcast generation: {str(e)}"
-        )
+    task_id = str(uuid.uuid4())
+    now = datetime.now().isoformat()
+    active_tasks[task_id] = {
+        "task_id": task_id,
+        "status": "queued",
+        "created_at": now,
+        "updated_at": now,
+        "request": request.model_dump(),
+        "result": None,
+        "error": None,
+    }
+    background_tasks.add_task(run_generation_task, task_id, request)
 
-@app.get("/download/{filename}")
+    return PodcastResponse(
+        success=True,
+        message="Podcast generation queued",
+        task_id=task_id,
+    )
+
+
+@app.get(
+    "/api/tasks/{task_id}",
+    response_model=TaskStatusResponse,
+    dependencies=[Depends(require_api_token)],
+)
+@app.get(
+    "/tasks/{task_id}",
+    response_model=TaskStatusResponse,
+    dependencies=[Depends(require_api_token)],
+)
+async def get_task_status(task_id: str):
+    """Get the status of a podcast generation task."""
+    task = active_tasks.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return TaskStatusResponse(**task)
+
+@app.get("/api/download/{filename}", dependencies=[Depends(require_api_token)])
+@app.get("/download/{filename}", dependencies=[Depends(require_api_token)])
 async def download_podcast(filename: str):
     """Download a generated podcast file."""
-    file_path = Path("PodcastOutput") / filename
-    
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail="File not found")
-    
-    if not file_path.suffix.lower() in [".mp3", ".wav", ".txt"]:
-        raise HTTPException(status_code=400, detail="Invalid file type")
+    file_path = _resolve_output_file(filename)
     
     return FileResponse(
         path=str(file_path),
-        filename=filename,
+        filename=file_path.name,
         media_type="application/octet-stream"
     )
 
-@app.get("/files")
+@app.get("/api/files", dependencies=[Depends(require_api_token)])
+@app.get("/files", dependencies=[Depends(require_api_token)])
 async def list_files():
     """List all generated podcast files."""
     output_dir = Path("PodcastOutput")
@@ -244,7 +346,8 @@ async def list_files():
     
     return {"files": sorted(files, key=lambda x: x["modified"], reverse=True)}
 
-@app.get("/status")
+@app.get("/api/status", dependencies=[Depends(require_api_token)])
+@app.get("/status", dependencies=[Depends(require_api_token)])
 async def system_status():
     """Get detailed system status and metrics."""
     api_status = validate_api_keys()
@@ -277,7 +380,7 @@ async def system_status():
         "timestamp": datetime.now().isoformat()
     }
 
-@app.get("/api/logs")
+@app.get("/api/logs", dependencies=[Depends(require_api_token)])
 async def get_logs():
     """Get recent system logs."""
     try:
@@ -365,7 +468,7 @@ async def get_logs():
             "error": str(e)
         }
 
-@app.get("/api/memory/summary")
+@app.get("/api/memory/summary", dependencies=[Depends(require_api_token)])
 async def get_memory_summary():
     """Get comprehensive memory system summary."""
     try:
@@ -382,7 +485,7 @@ async def get_memory_summary():
             "timestamp": datetime.now().isoformat()
         }
 
-@app.get("/api/memory/context")
+@app.get("/api/memory/context", dependencies=[Depends(require_api_token)])
 async def get_memory_context():
     """Get current memory context for podcast generation."""
     try:
@@ -402,7 +505,7 @@ async def get_memory_context():
             "timestamp": datetime.now().isoformat()
         }
 
-@app.post("/api/memory/clear-session")
+@app.post("/api/memory/clear-session", dependencies=[Depends(require_api_token)])
 async def clear_memory_session():
     """Clear current short-term memory session."""
     try:
@@ -419,7 +522,7 @@ async def clear_memory_session():
             "timestamp": datetime.now().isoformat()
         }
 
-@app.get("/api/memory/patterns")
+@app.get("/api/memory/patterns", dependencies=[Depends(require_api_token)])
 async def get_learned_patterns():
     """Get learned user patterns."""
     try:
@@ -437,7 +540,7 @@ async def get_learned_patterns():
             "timestamp": datetime.now().isoformat()
         }
 
-@app.get("/api/memory/knowledge")
+@app.get("/api/memory/knowledge", dependencies=[Depends(require_api_token)])
 async def query_knowledge_graph(subject: str = None, predicate: str = None, object_val: str = None):
     """Query the knowledge graph."""
     try:

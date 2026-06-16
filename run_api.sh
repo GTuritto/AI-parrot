@@ -27,13 +27,15 @@ fi
 
 # Set Python path
 export PYTHONPATH="./src:./api:$PYTHONPATH"
+API_HOST="${AI_PARROT_API_HOST:-127.0.0.1}"
+API_PORT="${AI_PARROT_API_PORT:-8000}"
 
 # Show configuration
 echo -e "\n${GREEN}=== API Configuration ===${NC}"
-echo -e "Host: ${YELLOW}0.0.0.0${NC}"
-echo -e "Port: ${YELLOW}8000${NC}"
-echo -e "Docs: ${YELLOW}http://localhost:8000/docs${NC}"
-echo -e "API:  ${YELLOW}http://localhost:8000${NC}"
+echo -e "Host: ${YELLOW}${API_HOST}${NC}"
+echo -e "Port: ${YELLOW}${API_PORT}${NC}"
+echo -e "Docs: ${YELLOW}http://localhost:${API_PORT}/docs${NC}"
+echo -e "API:  ${YELLOW}http://localhost:${API_PORT}${NC}"
 
 echo -e "\n${GREEN}Enterprise AI Agent Patterns:${NC}"
 echo -e "🤝 A2A Collaborative Assessment"
@@ -47,4 +49,4 @@ echo -e "\n${GREEN}🚀 Starting AI-Parrot Enterprise API...${NC}"
 echo -e "Press ${YELLOW}Ctrl+C${NC} to stop the server"
 echo ""
 
-uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn api.main:app --host "${API_HOST}" --port "${API_PORT}" --reload

@@ -32,7 +32,7 @@ dependencies = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["podcast_generator", "utils"]
+packages = ["src/podcast_generator", "src/utils"]
 
 [project.optional-dependencies]
 dev = [

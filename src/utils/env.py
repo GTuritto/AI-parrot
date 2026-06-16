@@ -52,7 +52,7 @@ class APIKeys:
     @property
     def elevenlabs(self) -> str:
         """Get ElevenLabs API key."""
-        return os.getenv("ELEVENLABS_API_KEY", "")
+        return os.getenv("ELEVENLABS_API_KEY") or os.getenv("ELEVEN_API_KEY", "")
     
     @property
     def mistral(self) -> str:
